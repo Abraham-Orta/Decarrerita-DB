@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decarrerita - Sistema de Gestión de Traslados</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para íconos modernos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Hoja de estilos premium personalizada -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+    
+    <!-- Efectos de Fondo Decorativos (Glow Orbs) -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Contenedor Principal de la App -->
+    <div id="app-container">
+        
+        <!-- ========================================== -->
+        <!-- 1. BARRA DE NAVEGACIÓN PRINCIPAL -->
+        <!-- ========================================== -->
+        <header id="app-header" class="hidden">
+            <div class="header-content">
+                <div class="brand">
+                    <i class="fa-solid fa-car-side logo-icon"></i>
+                    <span class="brand-name">De<span class="highlight">carrerita</span></span>
+                </div>
+                <div class="user-status-bar">
+                    <div class="user-badge">
+                        <i class="fa-solid fa-circle-user avatar-icon"></i>
+                        <div class="user-info-text">
+                            <span id="nav-user-name" class="user-name">Usuario</span>
+                            <span id="nav-user-role" class="user-role">Rol</span>
+                        </div>
+                    </div>
+                    <button id="btn-logout" class="btn btn-icon-only" title="Cerrar sesión">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========================================== -->
+        <!-- 2. VISTA DE AUTENTICACIÓN (LOGIN / REGISTRO) -->
+        <!-- ========================================== -->
+        <main id="view-auth" class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <i class="fa-solid fa-car-side auth-logo"></i>
+                    <h1>De<span class="highlight">carrerita</span></h1>
+                    <p class="auth-subtitle">Tu traslado seguro a un click de distancia</p>
+                </div>
+
+                <!-- Selector de Pestañas: Iniciar Sesión / Registrarse -->
+                <div class="auth-tabs">
+                    <button id="tab-login" class="tab-btn active">Iniciar Sesión</button>
+                    <button id="tab-register" class="tab-btn">Registrarse</button>
+                </div>
+
+                <!-- Formulario de Login -->
+                <form id="form-login" class="auth-form">
+                    <div class="input-group">
+                        <label for="login-email">Correo Electrónico</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-envelope input-icon"></i>
+                            <input type="email" id="login-email" required placeholder="correo@ejemplo.com">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="login-password">Contraseña</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-lock input-icon"></i>
+                            <input type="password" id="login-password" required placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Ingresar <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+
+                <!-- Formulario de Registro -->
+                <form id="form-register" class="auth-form hidden">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="reg-nombre">Nombre</label>
+                            <input type="text" id="reg-nombre" required placeholder="Juan">
+                        </div>
+                        <div class="input-group">
+                            <label for="reg-apellido">Apellido</label>
+                            <input type="text" id="reg-apellido" required placeholder="Pérez">
+                        </div>
+                        <div class="input-group">
+                            <label for="reg-cedula">Cédula</label>
+                            <input type="text" id="reg-cedula" required placeholder="V-12345678">
+                        </div>
+                        <div class="input-group">
+                            <label for="reg-telefono">Teléfono</label>
+                            <input type="text" id="reg-telefono" required placeholder="0412-1234567">
+                        </div>
+                        <div class="input-group col-span-2">
+                            <label for="reg-email">Correo Electrónico</label>
+                            <input type="email" id="reg-email" required placeholder="correo@ejemplo.com">
+                        </div>
+                        <div class="input-group col-span-2">
+                            <label for="reg-password">Contraseña</label>
+                            <input type="password" id="reg-password" required placeholder="Crea una contraseña segura">
+                        </div>
+                        <div class="input-group col-span-2">
+                            <label for="reg-rol">Tipo de Usuario</label>
+                            <div class="select-wrapper">
+                                <select id="reg-rol" required>
+                                    <option value="cliente">Cliente (Pasajero)</option>
+                                    <option value="chofer">Chofer (Conductor)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Campos específicos para Chofer (Ocultos por defecto) -->
+                    <div id="chofer-fields" class="hidden spec-fields">
+                        <h3 class="section-divider">Datos Bancarios</h3>
+                        <div class="form-grid">
+                            <div class="input-group col-span-2">
+                                <label for="reg-banco">Banco de la Cuenta</label>
+                                <div class="select-wrapper">
+                                    <select id="reg-banco">
+                                        <!-- Cargados dinámicamente -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="input-group col-span-2">
+                                <label for="reg-cuenta">Número de Cuenta (20 dígitos)</label>
+                                <input type="text" id="reg-cuenta" placeholder="0102-0000-XX-XXXXXXXXXX" maxlength="30">
+                            </div>
+                        </div>
+
+                        <h3 class="section-divider">Contactos de Emergencia (Mínimo 2)</h3>
+                        
+                        <!-- Contacto 1 -->
+                        <div class="contacto-emergencia-card">
+                            <h4>Contacto 1</h4>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label for="reg-c1-nombre">Nombre Completo</label>
+                                    <input type="text" id="reg-c1-nombre" placeholder="Familiar o Amigo">
+                                </div>
+                                <div class="input-group">
+                                    <label for="reg-c1-relacion">Relación</label>
+                                    <input type="text" id="reg-c1-relacion" placeholder="Esposa, Hermano, etc.">
+                                </div>
+                                <div class="input-group col-span-2">
+                                    <label for="reg-c1-telefono">Teléfono</label>
+                                    <input type="text" id="reg-c1-telefono" placeholder="0424-XXXXXXX">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contacto 2 -->
+                        <div class="contacto-emergencia-card">
+                            <h4>Contacto 2</h4>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label for="reg-c2-nombre">Nombre Completo</label>
+                                    <input type="text" id="reg-c2-nombre" placeholder="Familiar o Amigo">
+                                </div>
+                                <div class="input-group">
+                                    <label for="reg-c2-relacion">Relación</label>
+                                    <input type="text" id="reg-c2-relacion" placeholder="Esposa, Hermano, etc.">
+                                </div>
+                                <div class="input-group col-span-2">
+                                    <label for="reg-c2-telefono">Teléfono</label>
+                                    <input type="text" id="reg-c2-telefono" placeholder="0424-XXXXXXX">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block btn-register">
+                        Registrar Cuenta <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                </form>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- 3. PANEL DE CLIENTE (DASHBOARD) -->
+        <!-- ========================================== -->
+        <main id="view-cliente" class="dashboard-container hidden">
+            <div class="dashboard-grid">
+                
+                <!-- Columna Izquierda: Balance y Acciones -->
+                <div class="dashboard-col">
+                    
+                    <!-- Tarjeta de Saldo / Wallet -->
+                    <div class="card card-wallet">
+                        <div class="wallet-info">
+                            <i class="fa-solid fa-wallet wallet-icon"></i>
+                            <div>
+                                <h3>Tu Saldo Disponible</h3>
+                                <p class="balance-amount">$<span id="cliente-saldo-val">0.00</span></p>
+                            </div>
+                        </div>
+                        <div class="wallet-actions">
+                            <button id="btn-open-recarga" class="btn btn-secondary btn-sm">
+                                <i class="fa-solid fa-plus-circle"></i> Recargar Saldo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta para Solicitar Traslado -->
+                    <div class="card card-request-ride">
+                        <h2><i class="fa-solid fa-map-location-dot highlight"></i> Solicitar Traslado</h2>
+                        <form id="form-request-ride" class="app-form">
+                            <div class="input-group">
+                                <label for="ride-origen">Punto de Origen (A)</label>
+                                <input type="text" id="ride-origen" required placeholder="Ej: Alta Vista, C.C. Orinokia">
+                            </div>
+                            <div class="input-group">
+                                <label for="ride-destino">Punto de Destino (B)</label>
+                                <input type="text" id="ride-destino" required placeholder="Ej: Av. Principal de Unare II">
+                            </div>
+                            <div class="input-group">
+                                <label for="ride-distancia">Distancia Estimada (Km)</label>
+                                <input type="number" id="ride-distancia" step="0.1" min="0.1" required placeholder="Ej: 5.5">
+                            </div>
+                            
+                            <!-- Tarifa Estimada Dinámica -->
+                            <div class="estimated-fare-box">
+                                <span class="label">Costo Estimado del Viaje:</span>
+                                <span class="fare-val">$<span id="ride-fare-est">2.50</span></span>
+                                <small class="formula-info">Calculado como: $2.50 base + $1.20 por Km</small>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fa-solid fa-paper-plane"></i> Confirmar y Buscar Chofer
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- Columna Derecha: Historiales -->
+                <div class="dashboard-col col-span-2">
+                    
+                    <!-- Pestañas de Historial -->
+                    <div class="section-tabs">
+                        <button id="tab-historial-viajes" class="sect-tab active">Historial de Traslados</button>
+                        <button id="tab-historial-recargas" class="sect-tab">Historial de Recargas</button>
+                    </div>
+
+                    <!-- Panel de Viajes del Cliente -->
+                    <div id="panel-historial-viajes" class="table-card">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Ruta</th>
+                                        <th>Distancia</th>
+                                        <th>Costo</th>
+                                        <th>Conductor asignado</th>
+                                        <th>Vehículo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-cliente-viajes-body">
+                                    <!-- Cargado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Recargas del Cliente -->
+                    <div id="panel-historial-recargas" class="table-card hidden">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Referencia</th>
+                                        <th>Banco Origen</th>
+                                        <th>Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-cliente-recargas-body">
+                                    <!-- Cargado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Modal / Formulario Flotante de Recarga de Saldo -->
+            <div id="modal-recarga" class="modal hidden">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h2><i class="fa-solid fa-credit-card highlight"></i> Registrar Recarga de Saldo</h2>
+                        <button class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form id="form-recarga" class="app-form">
+                        <p class="modal-help-text">
+                            Realiza tu transferencia a las cuentas de la empresa e ingresa los datos a continuación:
+                        </p>
+                        <div class="input-group">
+                            <label for="recarga-banco">Banco de Origen</label>
+                            <div class="select-wrapper">
+                                <select id="recarga-banco" required>
+                                    <!-- Cargado dinámicamente -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="recarga-referencia">Número de Referencia Bancaria</label>
+                            <input type="text" id="recarga-referencia" required placeholder="Ej: 998811">
+                        </div>
+                        <div class="input-group">
+                            <label for="recarga-monto">Monto a Cargar ($)</label>
+                            <input type="number" id="recarga-monto" step="0.01" min="0.01" required placeholder="Ej: 50.00">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Confirmar Carga</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal de Traslado Exitoso (Detalle de chofer asignado) -->
+            <div id="modal-ride-success" class="modal hidden">
+                <div class="modal-card modal-success">
+                    <div class="success-header">
+                        <i class="fa-solid fa-circle-check success-icon animate-bounce"></i>
+                        <h2>¡Traslado Asignado!</h2>
+                        <p>Hemos encontrado un conductor disponible para ti.</p>
+                    </div>
+                    <div class="success-details">
+                        <div class="detail-section">
+                            <h3><i class="fa-solid fa-user-tie"></i> Conductor</h3>
+                            <p class="detail-highlight"><span id="assigned-driver-name">Nombre Chofer</span></p>
+                            <p>Teléfono: <span id="assigned-driver-phone">0412-1234567</span></p>
+                        </div>
+                        <div class="detail-section">
+                            <h3><i class="fa-solid fa-car"></i> Vehículo</h3>
+                            <p class="detail-highlight"><span id="assigned-veh-model">Toyota Corolla</span></p>
+                            <p>Placa: <span id="assigned-veh-plate" class="plate-badge">AA123BB</span></p>
+                            <p>Color: <span id="assigned-veh-color">Gris</span></p>
+                        </div>
+                        <div class="detail-summary">
+                            <p>Total Debitado: <strong>$<span id="assigned-ride-cost">0.00</span></strong></p>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-block btn-close-success">¡Excelente, en marcha!</button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ========================================== -->
+        <!-- 4. PANEL DE CHOFER (DASHBOARD) -->
+        <!-- ========================================== -->
+        <main id="view-chofer" class="dashboard-container hidden">
+            <div class="dashboard-grid">
+                
+                <!-- Fila Superior: Resumen de Saldos (Cards) -->
+                <div class="dashboard-col col-span-3 cards-row">
+                    
+                    <div class="card card-stats card-glow-green">
+                        <div class="stats-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                        <div class="stats-data">
+                            <h3>Pendiente por Cobrar</h3>
+                            <p class="stats-val">$<span id="chofer-saldo-pendiente">0.00</span></p>
+                            <small>Monto a transferir por administración (70% del total)</small>
+                        </div>
+                    </div>
+
+                    <div class="card card-stats card-glow-blue">
+                        <div class="stats-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                        <div class="stats-data">
+                            <h3>Historial Cobrado</h3>
+                            <p class="stats-val">$<span id="chofer-saldo-pagado">0.00</span></p>
+                            <small>Monto ya liquidado e ingresado a tu cuenta bancaria</small>
+                        </div>
+                    </div>
+
+                    <div class="card card-stats card-action-card">
+                        <div class="stats-icon"><i class="fa-solid fa-car"></i></div>
+                        <div class="stats-data">
+                            <h3>Tus Vehículos</h3>
+                            <p class="stats-val"><span id="chofer-vehiculos-count">0</span> registrados</p>
+                            <button id="btn-open-add-vehiculo" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-plus"></i> Registrar Vehículo
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Columna Izquierda: Vehículos -->
+                <div class="dashboard-col">
+                    <div class="card">
+                        <h2><i class="fa-solid fa-car highlight"></i> Vehículos Registrados</h2>
+                        <div id="chofer-vehiculos-list" class="vehicles-list">
+                            <!-- Rellenado dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna Derecha: Viajes -->
+                <div class="dashboard-col col-span-2">
+                    
+                    <!-- Pestañas de traslados chofer -->
+                    <div class="section-tabs">
+                        <button id="tab-chofer-viajes-todos" class="sect-tab active">Todos los Traslados</button>
+                        <button id="tab-chofer-viajes-pendientes" class="sect-tab">Pendientes de Cobro</button>
+                        <button id="tab-chofer-viajes-pagados" class="sect-tab">Cobrados</button>
+                    </div>
+
+                    <!-- Filtro por fechas para 'Todos los Traslados' -->
+                    <div id="chofer-filter-box" class="filter-box">
+                        <div class="input-group">
+                            <label>Desde</label>
+                            <input type="date" id="chofer-filter-desde">
+                        </div>
+                        <div class="input-group">
+                            <label>Hasta</label>
+                            <input type="date" id="chofer-filter-hasta">
+                        </div>
+                        <button id="btn-chofer-filter" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+                    </div>
+
+                    <!-- Tabla de Viajes del Chofer -->
+                    <div class="table-card">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Ruta</th>
+                                        <th>Cliente</th>
+                                        <th>Costo Viaje</th>
+                                        <th>Tu Ganancia (70%)</th>
+                                        <th>Estado</th>
+                                        <th>Liquidación</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-chofer-viajes-body">
+                                    <!-- Cargado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Modal: Registrar Vehículo -->
+            <div id="modal-vehiculo" class="modal hidden">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h2><i class="fa-solid fa-car highlight"></i> Registrar Nuevo Vehículo</h2>
+                        <button class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form id="form-vehiculo" class="app-form">
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label for="veh-marca">Marca</label>
+                                <input type="text" id="veh-marca" required placeholder="Ej: Toyota">
+                            </div>
+                            <div class="input-group">
+                                <label for="veh-modelo">Modelo</label>
+                                <input type="text" id="veh-modelo" required placeholder="Ej: Corolla">
+                            </div>
+                            <div class="input-group">
+                                <label for="veh-placa">Placa</label>
+                                <input type="text" id="veh-placa" required placeholder="Ej: AA123BB">
+                            </div>
+                            <div class="input-group">
+                                <label for="veh-color">Color</label>
+                                <input type="text" id="veh-color" required placeholder="Ej: Gris">
+                            </div>
+                            <div class="input-group col-span-2">
+                                <label for="veh-anio">Año de Fabricación</label>
+                                <input type="number" id="veh-anio" min="1990" max="2027" required placeholder="Ej: 2018">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Guardar Vehículo</button>
+                    </form>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ========================================== -->
+        <!-- 5. PANEL DE PERSONAL ADMINISTRATIVO (DASHBOARD) -->
+        <!-- ========================================== -->
+        <main id="view-admin" class="dashboard-container hidden">
+            <div class="dashboard-grid">
+                
+                <!-- Columna Izquierda: Acciones Operativas -->
+                <div class="dashboard-col">
+                    
+                    <!-- Tarjeta para Cargar Notas de Pruebas -->
+                    <div class="card">
+                        <h2><i class="fa-solid fa-file-signature highlight"></i> Registro de Evaluaciones</h2>
+                        
+                        <div class="mini-tabs">
+                            <button id="mini-tab-psicologia" class="mini-tab active">Psicológica (Chofer)</button>
+                            <button id="mini-tab-vehiculo" class="mini-tab">Vehicular (Revisión)</button>
+                        </div>
+
+                        <!-- Formulario Prueba Psicológica -->
+                        <form id="form-eval-psicologia" class="app-form">
+                            <div class="input-group">
+                                <label for="eval-chofer-id">Seleccionar Chofer</label>
+                                <div class="select-wrapper">
+                                    <select id="eval-chofer-id" required>
+                                        <!-- Cargado por JS -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="eval-chofer-nota">Calificación (0 - 100)</label>
+                                <input type="number" id="eval-chofer-nota" min="0" max="100" required placeholder="Nota aprobatoria >= 73">
+                            </div>
+                            <div class="input-group">
+                                <label for="eval-chofer-fecha">Fecha de Evaluación</label>
+                                <input type="date" id="eval-chofer-fecha" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Guardar Nota Psicológica</button>
+                        </form>
+
+                        <!-- Formulario Revisión Vehicular -->
+                        <form id="form-eval-vehiculo" class="app-form hidden">
+                            <div class="input-group">
+                                <label for="eval-veh-id">Seleccionar Vehículo (Placa)</label>
+                                <div class="select-wrapper">
+                                    <select id="eval-veh-id" required>
+                                        <!-- Cargado por JS -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="eval-veh-nota">Calificación (0 - 100)</label>
+                                <input type="number" id="eval-veh-nota" min="0" max="100" required placeholder="Nota aprobatoria >= 65">
+                            </div>
+                            <div class="input-group">
+                                <label for="eval-veh-fecha">Fecha de Revisión</label>
+                                <input type="date" id="eval-veh-fecha" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Guardar Nota Vehicular</button>
+                        </form>
+                    </div>
+
+                    <!-- Tarjeta para Agregar Tablas Base (Bancos) -->
+                    <div class="card card-bancos-admin">
+                        <h2><i class="fa-solid fa-building-columns highlight"></i> Registrar Banco</h2>
+                        <form id="form-add-banco" class="app-form">
+                            <div class="input-group">
+                                <label for="banco-nombre">Nombre del Banco</label>
+                                <input type="text" id="banco-nombre" required placeholder="Ej: Banco de Venezuela">
+                            </div>
+                            <button type="submit" class="btn btn-secondary btn-block">Registrar Banco</button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- Columna Derecha: Pagos y Reportes -->
+                <div class="dashboard-col col-span-2">
+                    
+                    <!-- Pestañas de Administración -->
+                    <div class="section-tabs">
+                        <button id="tab-admin-pagos" class="sect-tab active">Liquidaciones Pendientes</button>
+                        <button id="tab-admin-reportes" class="sect-tab">Reportes y Estadísticas</button>
+                    </div>
+
+                    <!-- Panel de Liquidación de Choferes -->
+                    <div id="panel-admin-pagos" class="table-card">
+                        <p class="section-help-text">A continuación se muestran los choferes que tienen saldo a favor listo para ser cancelado (transferido):</p>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Chofer</th>
+                                        <th>Monto Acumulado</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-admin-pendientes-body">
+                                    <!-- Cargado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Reportes y Estadísticas -->
+                    <div id="panel-admin-reportes" class="hidden">
+                        
+                        <!-- Grid de Reportes -->
+                        <div class="reports-grid">
+                            
+                            <!-- Reporte 1: Ganancias de la Empresa -->
+                            <div class="card card-report">
+                                <h3><i class="fa-solid fa-chart-line highlight"></i> Ganancias de la Empresa</h3>
+                                <p class="report-desc">Calcula el 30% cobrado por la empresa en un rango de fechas.</p>
+                                <div class="form-grid">
+                                    <div class="input-group">
+                                        <label>Desde</label>
+                                        <input type="date" id="rep-ganancias-desde">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Hasta</label>
+                                        <input type="date" id="rep-ganancias-hasta">
+                                    </div>
+                                </div>
+                                <button id="btn-rep-ganancias" class="btn btn-secondary btn-sm btn-block mt-3">Generar Reporte</button>
+                                
+                                <div id="res-rep-ganancias" class="report-result-box hidden">
+                                    <div class="rep-metric">
+                                        <span class="rep-lbl">Ganancias Brutas:</span>
+                                        <span class="rep-val" id="val-rep-ganancias">$0.00</span>
+                                    </div>
+                                    <div class="rep-metric">
+                                        <span class="rep-lbl">Traslados Realizados:</span>
+                                        <span class="rep-val" id="val-rep-ganancias-viajes">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Reporte 2: Historial Pagado a un Chofer -->
+                            <div class="card card-report">
+                                <h3><i class="fa-solid fa-user-check highlight"></i> Liquidaciones a un Chofer</h3>
+                                <p class="report-desc">Consulta el total pagado a un conductor específico en un período.</p>
+                                <div class="form-grid">
+                                    <div class="input-group col-span-2">
+                                        <label>Seleccionar Chofer</label>
+                                        <div class="select-wrapper">
+                                            <select id="rep-chofer-id">
+                                                <!-- Cargado por JS -->
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Desde</label>
+                                        <input type="date" id="rep-chofer-desde">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Hasta</label>
+                                        <input type="date" id="rep-chofer-hasta">
+                                    </div>
+                                </div>
+                                <button id="btn-rep-chofer" class="btn btn-secondary btn-sm btn-block mt-3">Generar Reporte</button>
+                                
+                                <div id="res-rep-chofer" class="report-result-box hidden">
+                                    <div class="rep-metric">
+                                        <span class="rep-lbl">Total Cancelado:</span>
+                                        <span class="rep-val" id="val-rep-chofer">$0.00</span>
+                                    </div>
+                                    <h4>Detalle de Transferencias:</h4>
+                                    <ul id="list-rep-chofer-pagos" class="detalles-pago-list">
+                                        <!-- Cargado por JS -->
+                                    </ul>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Modal: Formulario de Pago (Cancelar a Chofer) -->
+            <div id="modal-pagar-chofer" class="modal hidden">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h2><i class="fa-solid fa-wallet highlight"></i> Procesar Liquidación</h2>
+                        <button class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form id="form-pagar-chofer" class="app-form">
+                        <input type="hidden" id="pago-chofer-id">
+                        
+                        <div class="pago-info-box">
+                            <span class="lbl">Conductor:</span>
+                            <strong id="pago-chofer-nombre">Nombre Chofer</strong>
+                            <br>
+                            <span class="lbl">Monto a liquidar:</span>
+                            <span class="val-destacado">$<span id="pago-chofer-monto">0.00</span></span>
+                            <p class="help-desc">
+                                Este monto cubre el 70% correspondiente de todos sus traslados pendientes.
+                            </p>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="pago-fecha">Fecha del Pago</label>
+                            <input type="date" id="pago-fecha" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="pago-referencia">Número de Referencia de Transferencia</label>
+                            <input type="text" id="pago-referencia" required placeholder="Ej: PAGO-998811">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block">Confirmar y Registrar Pago</button>
+                    </form>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Cargar Lógica del Frontend (JS) -->
+    <script src="js/app.js"></script>
+</body>
+</html>
