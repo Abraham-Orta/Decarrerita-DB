@@ -79,18 +79,7 @@ El sistema cuenta con 4 roles principales (los 5 tipos mencionados en la solicit
 A continuación se muestra el diagrama Entidad-Relación conceptual que modela el negocio de Decarrerita:
 
 ```mermaid
-%%{init: {
-  'theme': 'base',
-  'themeVariables': {
-    'primaryColor': '#1e293b',
-    'primaryTextColor': '#f8fafc',
-    'primaryBorderColor': '#3b82f6',
-    'lineColor': '#94a3b8',
-    'secondaryColor': '#0f172a',
-    'tertiaryColor': '#334155',
-    'fontFamily': 'Inter, sans-serif'
-  }
-}}%%
+%%{init: {'theme': 'dark'}}%%
 erDiagram
     %% ==========================================
     %% ENTIDADES PRINCIPALES (NÚCLEO)
