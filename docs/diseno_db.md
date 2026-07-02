@@ -79,15 +79,30 @@ El sistema cuenta con 4 roles principales (los 5 tipos mencionados en la solicit
 A continuación se muestra el diagrama Entidad-Relación conceptual que modela el negocio de Decarrerita:
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#1e293b',
+    'primaryTextColor': '#f8fafc',
+    'primaryBorderColor': '#3b82f6',
+    'lineColor': '#94a3b8',
+    'secondaryColor': '#0f172a',
+    'tertiaryColor': '#334155',
+    'fontFamily': 'Inter, sans-serif'
+  }
+}}%%
 erDiagram
+    %% ==========================================
+    %% ENTIDADES PRINCIPALES (NÚCLEO)
+    %% ==========================================
     USUARIO {
         int id_usuario PK
-        string email UNIQUE
+        string email UK
         string password
         string nombre
         string apellido
         string telefono
-        string cedula UNIQUE
+        string cedula UK
         enum tipo_usuario
         boolean activo
         timestamp fecha_registro
@@ -104,32 +119,10 @@ erDiagram
         string nro_cuenta
     }
     
-    CONTACTO_EMERGENCIA {
-        int id_contacto PK
-        int id_chofer FK
-        string nombre
-        string telefono
-        string relacion
-    }
-
-    BANCO {
-        int id_banco PK
-        string nombre UNIQUE
-    }
-
-    EVALUACION_CHOFER {
-        int id_evaluacion PK
-        int id_chofer FK
-        int nota
-        date fecha_evaluacion
-        boolean aprobado
-        int id_admin FK
-    }
-
     VEHICULO {
         int id_vehiculo PK
         int id_chofer FK
-        string placa UNIQUE
+        string placa UK
         string marca
         string modelo
         int anio
@@ -137,15 +130,9 @@ erDiagram
         boolean activo
     }
 
-    EVALUACION_VEHICULO {
-        int id_evaluacion_veh PK
-        int id_vehiculo FK
-        int nota
-        date fecha_evaluacion
-        boolean aprobado
-        int id_admin FK
-    }
-
+    %% ==========================================
+    %% ENTIDADES DE NEGOCIO (OPERACIONES)
+    %% ==========================================
     TRASLADO {
         int id_traslado PK
         int id_cliente FK
@@ -163,13 +150,12 @@ erDiagram
         int id_pago FK
     }
 
-    PAGO_CHOFER {
-        int id_pago PK
-        int id_chofer FK
-        date fecha_pago
-        string nro_referencia
-        decimal monto_pagado
-        int id_admin FK
+    %% ==========================================
+    %% ENTIDADES FINANCIERAS
+    %% ==========================================
+    BANCO {
+        int id_banco PK
+        string nombre UK
     }
 
     RECARGA_SALDO {
@@ -181,26 +167,73 @@ erDiagram
         decimal monto
     }
 
-    %% Relaciones
+    PAGO_CHOFER {
+        int id_pago PK
+        int id_chofer FK
+        date fecha_pago
+        string nro_referencia
+        decimal monto_pagado
+        int id_admin FK
+    }
+
+    %% ==========================================
+    %% ENTIDADES DE EVALUACIÓN Y CONTACTO
+    %% ==========================================
+    EVALUACION_CHOFER {
+        int id_evaluacion PK
+        int id_chofer FK
+        int nota
+        date fecha_evaluacion
+        boolean aprobado
+        int id_admin FK
+    }
+
+    EVALUACION_VEHICULO {
+        int id_evaluacion_veh PK
+        int id_vehiculo FK
+        int nota
+        date fecha_evaluacion
+        boolean aprobado
+        int id_admin FK
+    }
+
+    CONTACTO_EMERGENCIA {
+        int id_contacto PK
+        int id_chofer FK
+        string nombre
+        string telefono
+        string relacion
+    }
+
+    %% ==========================================
+    %% RELACIONES
+    %% ==========================================
+    
+    %% Herencia / Especialización
     USUARIO ||--o| CLIENTE : "es_un"
     USUARIO ||--o| CHOFER : "es_un"
-    CHOFER ||--|{ CONTACTO_EMERGENCIA : "tiene"
-    CHOFER ||--|{ VEHICULO : "posee"
-    CHOFER }|--|| BANCO : "cuenta_en"
-    CHOFER ||--|{ EVALUACION_CHOFER : "recibe"
-    VEHICULO ||--|{ EVALUACION_VEHICULO : "sometido_a"
     
+    %% Chofer y Vehículos
+    CHOFER ||--|{ VEHICULO : "posee"
+    CHOFER ||--|{ CONTACTO_EMERGENCIA : "tiene"
+    
+    %% Operaciones de Transporte
     CLIENTE ||--|{ TRASLADO : "solicita"
     CHOFER ||--|{ TRASLADO : "realiza"
     VEHICULO ||--|{ TRASLADO : "utilizado_en"
     
-    CLIENTE ||--|{ RECARGA_SALDO : "realiza"
+    %% Evaluaciones
+    CHOFER ||--|{ EVALUACION_CHOFER : "recibe"
+    VEHICULO ||--|{ EVALUACION_VEHICULO : "sometido_a"
+    
+    %% Finanzas
+    CHOFER }|--|| BANCO : "cuenta_en"
     RECARGA_SALDO }|--|| BANCO : "banco_origen"
-
+    CLIENTE ||--|{ RECARGA_SALDO : "realiza"
     PAGO_CHOFER ||--|{ TRASLADO : "cancela"
     CHOFER ||--|{ PAGO_CHOFER : "recibe_pago"
     
-    %% Relaciones del Personal Administrativo
+    %% Relaciones Administrativas (Roles de Sistema)
     USUARIO ||--|{ EVALUACION_CHOFER : "registra_eval"
     USUARIO ||--|{ EVALUACION_VEHICULO : "registra_rev"
     USUARIO ||--|{ PAGO_CHOFER : "procesa_pago"
