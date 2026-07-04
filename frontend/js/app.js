@@ -487,8 +487,13 @@ document.getElementById('form-recarga').addEventListener('submit', async (e) => 
         document.getElementById('modal-recarga').classList.add('hidden');
         document.getElementById('form-recarga').reset();
         
-        // Recargar datos
-        loadClienteSaldo();
+        // Actualizar el DOM instantáneamente con la respuesta del backend
+        if (data.nuevo_saldo !== undefined) {
+            document.getElementById('cliente-saldo-val').textContent = parseFloat(data.nuevo_saldo).toFixed(2);
+        } else {
+            loadClienteSaldo();
+        }
+        
         loadClienteRecargas();
     } catch (err) {
         showToast(err.message, 'error');
