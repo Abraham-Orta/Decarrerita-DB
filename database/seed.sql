@@ -27,7 +27,7 @@ INSERT INTO usuarios (email, password, nombre, apellido, telefono, cedula, tipo_
 
 -- 3. Especializar Clientes (id_usuario 7 y 8)
 INSERT INTO clientes (id_usuario, saldo) VALUES
-(7, 150.00), -- Ana inicia con $150.00 (ya cargados y simulados mediante trigger de recargas más abajo)
+(7, 0.00), -- Ana iniciará con $0.00 y los triggers simularán la recarga real a $150.00 más abajo
 (8, 0.00);    -- José inicia en $0.00
 
 -- 4. Especializar Choferes (id_usuario 4, 5 y 6)
