@@ -134,6 +134,7 @@ CREATE TABLE recargas_saldo (
     nro_referencia VARCHAR(50) NOT NULL,
     id_banco INT NOT NULL,
     monto DECIMAL(10, 2) NOT NULL,
+    estado ENUM('pendiente', 'aprobada', 'rechazada') NOT NULL DEFAULT 'pendiente',
     CONSTRAINT pk_recargas PRIMARY KEY (id_recarga),
     CONSTRAINT fk_recargas_clientes FOREIGN KEY (id_cliente) 
         REFERENCES clientes (id_usuario) ON DELETE CASCADE,
@@ -194,13 +195,15 @@ CREATE TABLE traslados (
 DELIMITER $$
 
 -- Trigger 1: Aumentar saldo del cliente tras una recarga exitosa
-CREATE TRIGGER trg_after_insert_recarga
-AFTER INSERT ON recargas_saldo
+CREATE TRIGGER trg_after_update_recarga
+AFTER UPDATE ON recargas_saldo
 FOR EACH ROW
 BEGIN
-    UPDATE clientes
-    SET saldo = saldo + NEW.monto
-    WHERE id_usuario = NEW.id_cliente;
+    IF OLD.estado = 'pendiente' AND NEW.estado = 'aprobada' THEN
+        UPDATE clientes
+        SET saldo = saldo + NEW.monto
+        WHERE id_usuario = NEW.id_cliente;
+    END IF;
 END$$
 
 -- Trigger 2: Validar y descontar saldo del cliente al solicitar un traslado

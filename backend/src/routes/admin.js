@@ -1,10 +1,50 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
 
 // Requiere rol de personal_administrativo o administrador
 router.use(authenticateToken, authorizeRoles('personal_administrativo', 'administrador'));
+
+// 0. Crear usuarios administrativos (Solo para el administrador principal)
+router.post('/usuarios', async (req, res) => {
+  // Verificación extra de seguridad: Solo un Administrador puede crear personal interno
+  if (req.user.tipo_usuario !== 'administrador') {
+    return res.status(403).json({ error: 'Solo los administradores pueden crear personal interno.' });
+  }
+
+  const { email, password, nombre, apellido, telefono, cedula, tipo_usuario } = req.body;
+
+  if (!email || !password || !nombre || !apellido || !telefono || !cedula || !tipo_usuario) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios.' });
+  }
+
+  if (tipo_usuario !== 'administrador' && tipo_usuario !== 'personal_administrativo') {
+    return res.status(400).json({ error: 'Este endpoint es exclusivo para crear personal administrativo.' });
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const [result] = await pool.query(
+      `INSERT INTO usuarios (email, password, nombre, apellido, telefono, cedula, tipo_usuario) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [email, hashedPassword, nombre, apellido, telefono, cedula, tipo_usuario]
+    );
+
+    res.status(201).json({ 
+      message: 'Usuario administrativo creado exitosamente.', 
+      id_usuario: result.insertId 
+    });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'El email o la cédula ya están registrados.' });
+    }
+    res.status(500).json({ error: 'Error al registrar el usuario administrativo.' });
+  }
+});
 
 // 1. Agregar un Banco
 router.post('/bancos', async (req, res) => {
@@ -106,6 +146,47 @@ router.post('/evaluaciones/vehiculos', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al registrar la revisión del vehículo.' });
+  }
+});
+
+router.get('/recargas/pendientes', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT r.id_recarga, r.fecha, r.nro_referencia, r.monto, r.estado,
+              b.nombre AS banco_origen, u.nombre AS cliente_nombre, u.apellido AS cliente_apellido
+       FROM recargas_saldo r
+       JOIN bancos b ON r.id_banco = b.id_banco
+       JOIN usuarios u ON r.id_cliente = u.id_usuario
+       WHERE r.estado = 'pendiente'
+       ORDER BY r.fecha ASC`
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener recargas pendientes.' });
+  }
+});
+
+router.put('/recargas/:id_recarga/estado', async (req, res) => {
+  const { id_recarga } = req.params;
+  const { estado } = req.body;
+
+  if (!estado || !['aprobada', 'rechazada'].includes(estado)) {
+    return res.status(400).json({ error: 'Estado inválido. Debe ser aprobada o rechazada.' });
+  }
+
+  try {
+    const [result] = await pool.query(
+      `UPDATE recargas_saldo SET estado = ? WHERE id_recarga = ? AND estado = 'pendiente'`,
+      [estado, id_recarga]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Recarga no encontrada o ya procesada.' });
+    }
+
+    res.json({ message: `Recarga ${estado} exitosamente.` });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el estado de la recarga.' });
   }
 });
 
@@ -275,6 +356,59 @@ router.get('/reportes/listas/vehiculos', async (req, res) => {
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener lista de vehículos.' });
+  }
+});
+router.put('/usuarios/:id/estado', async (req, res) => {
+  const { id } = req.params;
+  const { activo } = req.body;
+
+  if (activo === undefined || typeof activo !== 'boolean') {
+    return res.status(400).json({ error: 'Debe enviar el campo activo (true o false).' });
+  }
+
+  try {
+    const [userRows] = await pool.query('SELECT tipo_usuario FROM usuarios WHERE id_usuario = ?', [id]);
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    if (['administrador', 'personal_administrativo'].includes(userRows[0].tipo_usuario) && req.user.tipo_usuario !== 'administrador') {
+      return res.status(403).json({ error: 'Solo un administrador puede modificar personal interno.' });
+    }
+
+    const [result] = await pool.query('UPDATE usuarios SET activo = ? WHERE id_usuario = ?', [activo, id]);
+
+    res.json({
+      message: activo ? 'Usuario reactivado exitosamente.' : 'Usuario desactivado exitosamente.',
+      id_usuario: parseInt(id)
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el estado del usuario.' });
+  }
+});
+
+router.put('/vehiculos/:id/estado', async (req, res) => {
+  const { id } = req.params;
+  const { activo } = req.body;
+
+  if (activo === undefined || typeof activo !== 'boolean') {
+    return res.status(400).json({ error: 'Debe enviar el campo activo (true o false).' });
+  }
+
+  try {
+    const [vehRows] = await pool.query('SELECT 1 FROM vehiculos WHERE id_vehiculo = ?', [id]);
+    if (vehRows.length === 0) {
+      return res.status(404).json({ error: 'Vehiculo no encontrado.' });
+    }
+
+    await pool.query('UPDATE vehiculos SET activo = ? WHERE id_vehiculo = ?', [activo, id]);
+
+    res.json({
+      message: activo ? 'Vehiculo reactivado exitosamente.' : 'Vehiculo desactivado exitosamente.',
+      id_vehiculo: parseInt(id)
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el estado del vehiculo.' });
   }
 });
 

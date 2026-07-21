@@ -47,8 +47,8 @@ Decarrerita-DB/
 
 1.  Asegúrate de tener un servidor MySQL / MariaDB en ejecución (ej: XAMPP, WampServer o MySQL Server nativo).
 2.  Inicia sesión en tu terminal MySQL o gestor visual (phpMyAdmin, DBeaver, etc.) y ejecuta los scripts en orden:
-    *   **Paso 1:** Ejecuta el archivo [database/schema.sql](file:///home/abraham/programacion/Decarrerita-DB/database/schema.sql) para crear la base de datos `decarrerita_db` y su estructura.
-    *   **Paso 2:** Ejecuta el archivo [database/seed.sql](file:///home/abraham/programacion/Decarrerita-DB/database/seed.sql) para poblar el sistema con datos de prueba realistas.
+    *   **Paso 1:** Ejecuta el archivo [database/schema.sql](./database/schema.sql) para crear la base de datos `decarrerita_db` y su estructura.
+    *   **Paso 2:** Ejecuta el archivo [database/seed.sql](./database/seed.sql) para poblar el sistema con datos de prueba realistas.
 
 ### 2. Configuración y Ejecución del Backend (Node.js)
 
@@ -71,8 +71,8 @@ Decarrerita-DB/
 ### 3. Ejecución del Frontend (SPA)
 
 Dado que la aplicación web es estática y se comunica mediante API REST con el backend, puedes abrirla de dos formas:
-*   **Opción A (Recomendada):** Usa la extensión **Live Server** en tu editor de código (como VS Code) para levantar el archivo [frontend/index.html](file:///home/abraham/programacion/Decarrerita-DB/frontend/index.html) en un servidor local (por ejemplo `http://127.0.0.1:5500`).
-*   **Opción B:** Haz doble clic directamente en [frontend/index.html](file:///home/abraham/programacion/Decarrerita-DB/frontend/index.html) para abrirlo localmente en cualquier navegador web.
+*   **Opción A (Recomendada):** Usa la extensión **Live Server** en tu editor de código (como VS Code) para levantar el archivo [frontend/index.html](./frontend/index.html) en un servidor local (por ejemplo `http://127.0.0.1:5500`).
+*   **Opción B:** Haz doble clic directamente en [frontend/index.html](./frontend/index.html) para abrirlo localmente en cualquier navegador web.
 
 ---
 

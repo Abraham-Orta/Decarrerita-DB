@@ -120,7 +120,14 @@ function showView(viewName) {
 
     // Mostrar la vista objetivo
     const target = document.getElementById(`view-${viewName}`);
-    if (target) target.classList.remove('hidden');
+    if (target) {
+        target.classList.remove('hidden');
+        if (viewName === 'cliente') {
+            setTimeout(() => {
+                if (typeof initRideMap === 'function') initRideMap();
+            }, 150); // Dar tiempo a que el DOM se muestre antes de inicializar el mapa
+        }
+    }
 }
 
 // Inicialización de la sesión activa al cargar la página
@@ -309,11 +316,301 @@ document.getElementById('form-register').addEventListener('submit', async (e) =>
 // =====================================================================
 // PANEL DE CLIENTE (LÓGICA & EVENTOS)
 // =====================================================================
+let rideMap, routingControl, routeGlowLayer, routeLine;
+let isSettingOrigin = true;
+let markerA, markerB;
+
+const zonasGuayana = [
+    {name: 'Alta Vista', lat: 8.304, lng: -62.714, r: 0.008},
+    {name: 'Los Olivos', lat: 8.291, lng: -62.710, r: 0.006},
+    {name: 'Villa Africana', lat: 8.280, lng: -62.718, r: 0.007},
+    {name: 'Villa Granada', lat: 8.312, lng: -62.720, r: 0.006},
+    {name: 'Villa Asia', lat: 8.286, lng: -62.702, r: 0.007},
+    {name: 'Unare I', lat: 8.290, lng: -62.730, r: 0.006},
+    {name: 'Unare II', lat: 8.283, lng: -62.738, r: 0.007},
+    {name: 'Castillito', lat: 8.296, lng: -62.745, r: 0.008},
+    {name: 'Centro Comercial Orinokia', lat: 8.300, lng: -62.700, r: 0.004},
+    {name: 'Parque Cachamay', lat: 8.306, lng: -62.706, r: 0.005},
+    {name: 'Parque La Navidad', lat: 8.302, lng: -62.708, r: 0.004},
+    {name: 'Central Santo Tome', lat: 8.297, lng: -62.694, r: 0.005},
+    {name: 'Puerto Ordaz Centro', lat: 8.295, lng: -62.715, r: 0.010},
+    {name: 'Villa Brasil', lat: 8.273, lng: -62.715, r: 0.006},
+    {name: 'Villa Colombia', lat: 8.277, lng: -62.726, r: 0.006},
+    {name: 'Chilemex', lat: 8.268, lng: -62.735, r: 0.007},
+    {name: 'Manoa', lat: 8.310, lng: -62.730, r: 0.007},
+    {name: 'Ferrominera', lat: 8.320, lng: -62.710, r: 0.008},
+    {name: 'Villa Antillana', lat: 8.270, lng: -62.705, r: 0.006},
+    {name: 'San Felix', lat: 8.355, lng: -62.650, r: 0.015},
+    {name: 'Vista al Sol', lat: 8.340, lng: -62.665, r: 0.007},
+    {name: 'Dalla Costa', lat: 8.325, lng: -62.680, r: 0.008},
+    {name: 'Core 8', lat: 8.275, lng: -62.760, r: 0.008},
+    {name: 'Cambalache', lat: 8.320, lng: -62.740, r: 0.008},
+    {name: 'Villa Alianza', lat: 8.260, lng: -62.720, r: 0.006}
+];
+
+function localGeocode(lat, lng) {
+    let closest = null;
+    let minDist = Infinity;
+    for (const zona of zonasGuayana) {
+        const d = Math.sqrt(Math.pow(lat - zona.lat, 2) + Math.pow(lng - zona.lng, 2));
+        if (d < zona.r && d < minDist) {
+            minDist = d;
+            closest = zona.name;
+        }
+    }
+    return closest ? `${closest}, Ciudad Guayana` : `Puerto Ordaz (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+}
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function initRideMap() {
+    if (rideMap) {
+        rideMap.invalidateSize();
+        return;
+    }
+    
+    rideMap = L.map('ride-map', {zoomControl: false}).setView([8.295, -62.715], 14);
+    
+    L.control.zoom({position: 'bottomright'}).addTo(rideMap);
+
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Google Maps',
+        maxZoom: 20
+    }).addTo(rideMap);
+
+    const iconOrigen = L.divIcon({
+        className: 'custom-map-marker',
+        html: '<div style="position:relative;"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;background:#10b981;border-radius:50%;box-shadow:0 0 12px 4px rgba(16,185,129,0.5);border:3px solid #fff;"></div></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+    const iconDestino = L.divIcon({
+        className: 'custom-map-marker',
+        html: '<div style="position:relative;"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;background:#f43f5e;border-radius:50%;box-shadow:0 0 12px 4px rgba(244,63,94,0.5);border:3px solid #fff;"></div></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+
+    const posA = L.latLng(8.298, -62.715);
+    const posB = L.latLng(8.280, -62.725);
+
+    markerA = L.marker(posA, {draggable: true, icon: iconOrigen}).addTo(rideMap);
+    markerB = L.marker(posB, {draggable: true, icon: iconDestino}).addTo(rideMap);
+
+    const reverseGeocode = async (lat, lng, inputId) => {
+        try {
+            document.getElementById(inputId).value = 'Ubicando...';
+            const localName = localGeocode(lat, lng);
+            const isKnownZone = !localName.includes('('); // Si no tiene paréntesis, es una zona conocida
+
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=es`);
+            if (!res.ok) throw new Error('err');
+            const data = await res.json();
+            
+            let address = '';
+            if (data.address) {
+                const a = data.address;
+                let street = (a.road && a.road.length < 50) ? a.road : '';
+                
+                if (isKnownZone) {
+                    // Usar siempre nuestra base de datos local para la zona (evita "Colombia" en vez de "Villa Colombia")
+                    address = street ? `${street}, ${localName}` : localName;
+                } else {
+                    // Fallback a Nominatim si estamos en una zona no mapeada
+                    const parts = [];
+                    if (street) parts.push(street);
+                    if (a.neighbourhood) parts.push(a.neighbourhood);
+                    else if (a.suburb) parts.push(a.suburb);
+                    if (!parts.length && a.residential) parts.push(a.residential);
+                    if (a.city || a.town || a.village) parts.push(a.city || a.town || a.village);
+                    address = parts.slice(0, 2).join(', ');
+                }
+            }
+            document.getElementById(inputId).value = address || localName;
+        } catch (e) {
+            document.getElementById(inputId).value = localGeocode(lat, lng);
+        }
+    };
+
+    const buildCurve = (a, b) => {
+        const midLat = (a.lat + b.lat) / 2;
+        const midLng = (a.lng + b.lng) / 2;
+        const dx = b.lng - a.lng;
+        const dy = b.lat - a.lat;
+        const offset = Math.sqrt(dx*dx + dy*dy) * 0.15;
+        const cpLat = midLat + dx * offset * 8;
+        const cpLng = midLng - dy * offset * 8;
+        const points = [];
+        for (let t = 0; t <= 1; t += 0.03) {
+            const lat = (1-t)*(1-t)*a.lat + 2*(1-t)*t*cpLat + t*t*b.lat;
+            const lng = (1-t)*(1-t)*a.lng + 2*(1-t)*t*cpLng + t*t*b.lng;
+            points.push([lat, lng]);
+        }
+        return points;
+    };
+
+    const updateStraightLine = () => {
+        const a = markerA.getLatLng();
+        const b = markerB.getLatLng();
+        if (routeLine) rideMap.removeLayer(routeLine);
+        if (routeGlowLayer) rideMap.removeLayer(routeGlowLayer);
+
+        const curvePoints = buildCurve(a, b);
+        routeGlowLayer = L.polyline(curvePoints, {
+            color: 'rgba(99,102,241,0.2)', weight: 14, lineCap: 'round'
+        }).addTo(rideMap);
+        routeLine = L.polyline(curvePoints, {
+            color: '#6366f1', weight: 4, opacity: 1, lineCap: 'round'
+        }).addTo(rideMap);
+
+        const distKm = haversineDistance(a.lat, a.lng, b.lat, b.lng);
+        const roadDist = distKm * 1.35;
+        const finalDist = roadDist < 0.1 ? 0.1 : roadDist;
+
+        const inputDist = document.getElementById('ride-distancia');
+        inputDist.value = finalDist.toFixed(1);
+        inputDist.dispatchEvent(new Event('input'));
+
+        reverseGeocode(a.lat, a.lng, 'ride-origen');
+        reverseGeocode(b.lat, b.lng, 'ride-destino');
+    };
+
+    const useOnlineRouting = navigator.onLine;
+
+    if (useOnlineRouting) {
+        routingControl = L.Routing.control({
+            waypoints: [posA, posB],
+            router: new L.Routing.OSRMv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1',
+                profile: 'driving'
+            }),
+            routeWhileDragging: true,
+            show: false,
+            addWaypoints: false,
+            fitSelectedRoutes: false,
+            lineOptions: {
+                styles: [
+                    {color: 'rgba(99,102,241,0.25)', weight: 12},
+                    {color: '#6366f1', opacity: 1, weight: 4}
+                ]
+            },
+            createMarker: function() { return null; }
+        }).addTo(rideMap);
+
+        routingControl.on('routesfound', function(e) {
+            const summary = e.routes[0].summary;
+            const distKm = summary.totalDistance / 1000;
+            const finalDist = distKm < 0.1 ? 0.1 : distKm;
+            const inputDist = document.getElementById('ride-distancia');
+            inputDist.value = finalDist.toFixed(1);
+            inputDist.dispatchEvent(new Event('input'));
+            const wps = routingControl.getWaypoints();
+            if (wps[0].latLng) reverseGeocode(wps[0].latLng.lat, wps[0].latLng.lng, 'ride-origen');
+            if (wps[1].latLng) reverseGeocode(wps[1].latLng.lat, wps[1].latLng.lng, 'ride-destino');
+        });
+
+        routingControl.on('routingerror', function() {
+            updateStraightLine();
+        });
+
+        const syncRoutingFromMarkers = () => {
+            routingControl.setWaypoints([markerA.getLatLng(), markerB.getLatLng()]);
+        };
+
+        markerA.on('dragend', syncRoutingFromMarkers);
+        markerB.on('dragend', syncRoutingFromMarkers);
+    } else {
+        updateStraightLine();
+        markerA.on('dragend', updateStraightLine);
+        markerB.on('dragend', updateStraightLine);
+    }
+
+    const inputOrigen = document.getElementById('ride-origen');
+    const inputDestino = document.getElementById('ride-destino');
+
+    const activateOrigen = () => {
+        isSettingOrigin = true;
+        inputOrigen.style.border = '2px solid #10b981';
+        inputOrigen.style.boxShadow = '0 0 8px rgba(16,185,129,0.3)';
+        inputDestino.style.border = '1px solid rgba(255,255,255,0.1)';
+        inputDestino.style.boxShadow = 'none';
+    };
+    const activateDestino = () => {
+        isSettingOrigin = false;
+        inputDestino.style.border = '2px solid #f43f5e';
+        inputDestino.style.boxShadow = '0 0 8px rgba(244,63,94,0.3)';
+        inputOrigen.style.border = '1px solid rgba(255,255,255,0.1)';
+        inputOrigen.style.boxShadow = 'none';
+    };
+
+    inputOrigen.style.cursor = 'pointer';
+    inputDestino.style.cursor = 'pointer';
+    activateOrigen();
+    inputOrigen.addEventListener('click', activateOrigen);
+    inputDestino.addEventListener('click', activateDestino);
+
+    rideMap.on('click', function(e) {
+        if (isSettingOrigin) {
+            markerA.setLatLng(e.latlng);
+            activateDestino();
+        } else {
+            markerB.setLatLng(e.latlng);
+        }
+        if (useOnlineRouting && routingControl) {
+            routingControl.setWaypoints([markerA.getLatLng(), markerB.getLatLng()]);
+        } else {
+            updateStraightLine();
+        }
+    });
+
+    if (useOnlineRouting) {
+        reverseGeocode(posA.lat, posA.lng, 'ride-origen');
+        reverseGeocode(posB.lat, posB.lng, 'ride-destino');
+    } else {
+        updateStraightLine();
+    }
+
+    if (navigator.onLine) {
+        prefetchTilesForCiudadGuayana();
+    }
+}
+
+function prefetchTilesForCiudadGuayana() {
+    const bounds = {latMin: 8.24, latMax: 8.36, lngMin: -62.78, lngMax: -62.62};
+    const zooms = [13, 14, 15];
+
+    zooms.forEach(z => {
+        const xMin = Math.floor((bounds.lngMin + 180) / 360 * Math.pow(2, z));
+        const xMax = Math.floor((bounds.lngMax + 180) / 360 * Math.pow(2, z));
+        const yMin = Math.floor((1 - Math.log(Math.tan(bounds.latMax * Math.PI / 180) + 1 / Math.cos(bounds.latMax * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+        const yMax = Math.floor((1 - Math.log(Math.tan(bounds.latMin * Math.PI / 180) + 1 / Math.cos(bounds.latMin * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+
+        for (let x = xMin; x <= xMax; x++) {
+            for (let y = yMin; y <= yMax; y++) {
+                const img = new Image();
+                img.src = `https://mt1.google.com/vt/lyrs=m&x=${x}&y=${y}&z=${z}`;
+            }
+        }
+    });
+}
+
+
 function initClienteDashboard() {
     loadClienteSaldo();
     loadClienteRecargas();
     loadClienteViajes();
     loadPublicBancos(); // Asegura bancos en el modal de recargas
+    if (document.getElementById('view-cliente').classList.contains('hidden') === false) {
+        initRideMap();
+    }
 }
 
 async function loadClienteSaldo() {
@@ -689,6 +986,8 @@ function initAdminDashboard() {
     loadAdminSelects();
     loadAdminPendientesPago();
     loadPublicBancos();
+    loadAdminUsuarios();
+    loadAdminVehiculos();
 }
 
 // Cargar conductores y vehículos en los selects de calificación y reportes
@@ -819,16 +1118,31 @@ document.getElementById('mini-tab-vehiculo').addEventListener('click', () => {
 document.getElementById('tab-admin-pagos').addEventListener('click', () => {
     document.getElementById('tab-admin-pagos').classList.add('active');
     document.getElementById('tab-admin-reportes').classList.remove('active');
+    document.getElementById('tab-admin-gestion').classList.remove('active');
     document.getElementById('panel-admin-pagos').classList.remove('hidden');
     document.getElementById('panel-admin-reportes').classList.add('hidden');
+    document.getElementById('panel-admin-gestion').classList.add('hidden');
 });
 
 document.getElementById('tab-admin-reportes').addEventListener('click', () => {
     document.getElementById('tab-admin-reportes').classList.add('active');
     document.getElementById('tab-admin-pagos').classList.remove('active');
+    document.getElementById('tab-admin-gestion').classList.remove('active');
     document.getElementById('panel-admin-reportes').classList.remove('hidden');
     document.getElementById('panel-admin-pagos').classList.add('hidden');
+    document.getElementById('panel-admin-gestion').classList.add('hidden');
     loadChoferesYVehiculos(); // Precargar listas de selects para reportes
+});
+
+document.getElementById('tab-admin-gestion').addEventListener('click', () => {
+    document.getElementById('tab-admin-gestion').classList.add('active');
+    document.getElementById('tab-admin-pagos').classList.remove('active');
+    document.getElementById('tab-admin-reportes').classList.remove('active');
+    document.getElementById('panel-admin-gestion').classList.remove('hidden');
+    document.getElementById('panel-admin-pagos').classList.add('hidden');
+    document.getElementById('panel-admin-reportes').classList.add('hidden');
+    loadAdminUsuarios();
+    loadAdminVehiculos();
 });
 
 // Formulario: Guardar Nota Psicológica
@@ -971,6 +1285,98 @@ document.getElementById('btn-rep-chofer').addEventListener('click', async () => 
     }
 });
 
+
+// =====================================================================
+// PANEL DE GESTIÓN DE PERSONAL Y VEHÍCULOS (ADMIN)
+// =====================================================================
+
+async function loadAdminUsuarios() {
+    try {
+        const usuarios = await apiRequest('/admin/reportes/listas/choferes');
+        const tbody = document.getElementById('table-admin-usuarios-body');
+        tbody.innerHTML = '';
+        
+        if (usuarios.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">No hay usuarios activos.</td></tr>';
+            return;
+        }
+
+        usuarios.forEach(u => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${u.nombre} ${u.apellido}</strong></td>
+                    <td>${u.cedula}</td>
+                    <td>Chofer</td>
+                    <td><span class="status-badge badge-success">Activo</span></td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="window.toggleUsuarioEstado(${u.id_usuario}, true)">
+                            Desactivar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        showToast('Error al cargar usuarios.', 'error');
+    }
+}
+
+window.toggleUsuarioEstado = async function(id, currentState) {
+    try {
+        const res = await apiRequest(`/admin/usuarios/${id}/estado`, {
+            method: 'PUT',
+            body: JSON.stringify({ activo: !currentState })
+        });
+        showToast(res.message || 'Estado actualizado', 'success');
+        loadAdminUsuarios();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
+
+async function loadAdminVehiculos() {
+    try {
+        const vehiculos = await apiRequest('/admin/reportes/listas/vehiculos');
+        const tbody = document.getElementById('table-admin-vehiculos-body');
+        tbody.innerHTML = '';
+        
+        if (vehiculos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary">No hay vehículos activos.</td></tr>';
+            return;
+        }
+
+        vehiculos.forEach(v => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="plate-badge">${v.placa}</span></td>
+                    <td>${v.marca} ${v.modelo}</td>
+                    <td>${v.chofer_nombre}</td>
+                    <td><span class="status-badge badge-success">Activo</span></td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="window.toggleVehiculoEstado(${v.id_vehiculo}, true)">
+                            Desactivar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    } catch (err) {
+        showToast('Error al cargar vehículos.', 'error');
+    }
+}
+
+window.toggleVehiculoEstado = async function(id, currentState) {
+    try {
+        const res = await apiRequest(`/admin/vehiculos/${id}/estado`, {
+            method: 'PUT',
+            body: JSON.stringify({ activo: !currentState })
+        });
+        showToast(res.message || 'Estado actualizado', 'success');
+        loadAdminVehiculos();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+};
 
 // =====================================================================
 // CONFIGURACIÓN GLOBAL DE MODALES (CERRAR EN CLIC DE BORDES O BOTÓN X)

@@ -29,6 +29,11 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios para el registro.' });
   }
 
+  // Seguridad: El registro público solo permite clientes o choferes
+  if (tipo_usuario !== 'cliente' && tipo_usuario !== 'chofer') {
+    return res.status(403).json({ error: 'No tienes permisos para registrar este tipo de usuario.' });
+  }
+
   const connection = await pool.getConnection();
   try {
     // Iniciar transacción para garantizar consistencia
@@ -103,12 +108,16 @@ router.post('/login', async (req, res) => {
 
   try {
     // Buscar usuario en la base de datos
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE email = ? AND activo = TRUE', [email]);
+    const [rows] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [email]);
     if (rows.length === 0) {
-      return res.status(401).json({ error: 'Credenciales incorrectas o usuario inactivo.' });
+      return res.status(401).json({ error: 'Credenciales incorrectas.' });
     }
 
     const user = rows[0];
+
+    if (!user.activo) {
+      return res.status(401).json({ error: 'Usuario inactivo.' });
+    }
 
     // Verificar contraseña
     const isMatch = await bcrypt.compare(password, user.password);

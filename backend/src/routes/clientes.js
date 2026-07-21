@@ -27,14 +27,10 @@ router.post('/recargas', async (req, res) => {
       [id_cliente, nro_referencia, id_banco, monto]
     );
 
-    // Obtener nuevo saldo
-    const [saldoResult] = await pool.query('SELECT saldo FROM clientes WHERE id_usuario = ?', [id_cliente]);
-    const nuevo_saldo = saldoResult[0].saldo;
-
     res.status(201).json({
-      message: 'Recarga registrada exitosamente.',
+      message: 'Recarga registrada y en espera de aprobación administrativa.',
       id_recarga: result.insertId,
-      nuevo_saldo
+      estado: 'pendiente'
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al registrar la recarga de saldo.' });

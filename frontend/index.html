@@ -10,6 +10,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome para íconos modernos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS (Local) -->
+    <link rel="stylesheet" href="lib/leaflet/leaflet.css"/>
+    <link rel="stylesheet" href="lib/leaflet-routing-machine/leaflet-routing-machine.css" />
+    <style>
+        /* Ocultar el panel de direcciones de Leaflet Routing Machine para mantener limpia la UI */
+        .leaflet-routing-container { display: none !important; }
+        .leaflet-grab { cursor: crosshair !important; }
+    </style>
     <!-- Hoja de estilos premium personalizada -->
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -218,16 +226,20 @@
                         <h2><i class="fa-solid fa-map-location-dot highlight"></i> Solicitar Traslado</h2>
                         <form id="form-request-ride" class="app-form">
                             <div class="input-group">
+                                <label>Selecciona tu ruta en el mapa (Haz clic para marcar origen/destino o arrastra los pines)</label>
+                                <div id="ride-map" style="height: 350px; width: 100%; border-radius: 12px; margin-bottom: 1rem; border: 2px solid rgba(255,255,255,0.05); z-index: 1;"></div>
+                            </div>
+                            <div class="input-group">
                                 <label for="ride-origen">Punto de Origen (A)</label>
-                                <input type="text" id="ride-origen" required placeholder="Ej: Alta Vista, C.C. Orinokia">
+                                <input type="text" id="ride-origen" required placeholder="Buscando ubicación..." readonly style="background: rgba(255,255,255,0.02); cursor: not-allowed;">
                             </div>
                             <div class="input-group">
                                 <label for="ride-destino">Punto de Destino (B)</label>
-                                <input type="text" id="ride-destino" required placeholder="Ej: Av. Principal de Unare II">
+                                <input type="text" id="ride-destino" required placeholder="Buscando ubicación..." readonly style="background: rgba(255,255,255,0.02); cursor: not-allowed;">
                             </div>
                             <div class="input-group">
                                 <label for="ride-distancia">Distancia Estimada (Km)</label>
-                                <input type="number" id="ride-distancia" step="0.1" min="0.1" required placeholder="Ej: 5.5">
+                                <input type="number" id="ride-distancia" step="0.1" min="0.1" required placeholder="Calculada automáticamente" readonly style="background: rgba(255,255,255,0.02); cursor: not-allowed;">
                             </div>
                             
                             <!-- Tarifa Estimada Dinámica -->
@@ -577,6 +589,7 @@
                     <div class="section-tabs">
                         <button id="tab-admin-pagos" class="sect-tab active">Liquidaciones Pendientes</button>
                         <button id="tab-admin-reportes" class="sect-tab">Reportes y Estadísticas</button>
+                        <button id="tab-admin-gestion" class="sect-tab">Gestión de Personal</button>
                     </div>
 
                     <!-- Panel de Liquidación de Choferes -->
@@ -672,6 +685,49 @@
 
                     </div>
 
+                    <!-- Panel de Gestión de Personal y Vehículos -->
+                    <div id="panel-admin-gestion" class="hidden">
+                        <div class="table-card mb-4">
+                            <h3><i class="fa-solid fa-users highlight"></i> Gestión de Usuarios</h3>
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Cédula</th>
+                                            <th>Tipo</th>
+                                            <th>Estado</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-admin-usuarios-body">
+                                        <!-- Cargado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="table-card">
+                            <h3><i class="fa-solid fa-car highlight"></i> Gestión de Vehículos</h3>
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Placa</th>
+                                            <th>Marca/Modelo</th>
+                                            <th>Chofer</th>
+                                            <th>Estado</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-admin-vehiculos-body">
+                                        <!-- Cargado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -716,6 +772,8 @@
     </div>
 
     <!-- Cargar Lógica del Frontend (JS) -->
+    <script src="lib/leaflet/leaflet.js"></script>
+    <script src="lib/leaflet-routing-machine/leaflet-routing-machine.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
