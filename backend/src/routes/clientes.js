@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
+const { sendTripReceiptEmail } = require('../services/mailService');
 
 // Todas las rutas aquí requieren autenticación y rol de CLIENTE
 router.use(authenticateToken, authorizeRoles('cliente'));
@@ -155,6 +156,25 @@ router.post('/traslados', async (req, res) => {
         placa: choferAsignado.placa
       }
     });
+
+    const clientEmail = req.user.email;
+    const tripData = {
+      id_traslado: result.insertId,
+      origen,
+      destino,
+      distancia_km: dist,
+      costo_total,
+      fecha: new Date(),
+      choferNombre: choferAsignado.chofer_nombre + ' ' + choferAsignado.chofer_apellido,
+      vehiculoInfo: choferAsignado.marca + ' ' + choferAsignado.modelo + ' - ' + choferAsignado.placa
+    };
+
+    const [userRows] = await pool.query('SELECT nombre FROM usuarios WHERE id_usuario = ?', [req.user.id_usuario]);
+    const clientName = userRows.length > 0 ? userRows[0].nombre : 'Cliente';
+
+    sendTripReceiptEmail(clientEmail, clientName, tripData).catch(err => 
+      console.error('⚠️ Error al enviar recibo de traslado:', err.message)
+    );
 
   } catch (error) {
     // Si ocurre un error en el trigger u otra parte, MySQL devolverá el error

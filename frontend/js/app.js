@@ -262,7 +262,14 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
         // Redirigir según el tipo
         initSession();
     } catch (error) {
-        showToast(error.message, 'error');
+        if (error.message.includes('Usuario inactivo')) {
+            showToast('Tu cuenta no está verificada. Por favor ingresa el código enviado a tu correo.', 'info');
+            document.getElementById('otp-email').value = email;
+            document.getElementById('modal-otp-verify').classList.remove('hidden');
+            document.getElementById('otp-code').focus();
+        } else {
+            showToast(error.message, 'error');
+        }
     }
 });
 
@@ -303,13 +310,109 @@ document.getElementById('form-register').addEventListener('submit', async (e) =>
             method: 'POST',
             body: JSON.stringify(payload)
         });
-        showToast('Registro exitoso. Inicia sesión ahora.', 'success');
         
-        // Volver al formulario de login
-        document.getElementById('tab-login').click();
-        document.getElementById('form-login').reset();
+        // Show OTP modal and populate email
+        document.getElementById('otp-email').value = email;
+        document.getElementById('modal-otp-verify').classList.remove('hidden');
+        document.getElementById('otp-code').focus();
+        showToast('Código enviado a tu correo. Por favor verifícalo.', 'info');
+        
     } catch (error) {
         showToast(error.message, 'error');
+    }
+});
+
+// =====================================================================
+// OTP VERIFICATION LOGIC
+// =====================================================================
+
+document.getElementById('form-otp-verify').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('otp-email').value;
+    const code = document.getElementById('otp-code').value;
+    
+    try {
+        await apiRequest('/auth/verify-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email, code })
+        });
+        
+        document.getElementById('modal-otp-verify').classList.add('hidden');
+        showToast('Cuenta verificada exitosamente. Ya puedes iniciar sesión.', 'success');
+        
+        document.getElementById('tab-login').click();
+        document.getElementById('form-login').reset();
+        document.getElementById('form-register').reset();
+        
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+});
+
+document.getElementById('btn-resend-otp').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('otp-email').value;
+    
+    try {
+        await apiRequest('/auth/resend-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+        showToast('Nuevo código enviado. Revisa tu correo.', 'info');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+});
+
+// =====================================================================
+// FORGOT PASSWORD LOGIC
+// =====================================================================
+
+document.getElementById('btn-forgot-password').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('forgot-step-1').classList.remove('hidden');
+    document.getElementById('forgot-step-2').classList.add('hidden');
+    document.getElementById('form-forgot-email').reset();
+    document.getElementById('form-reset-password').reset();
+    document.getElementById('modal-forgot-password').classList.remove('hidden');
+});
+
+document.getElementById('form-forgot-email').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    
+    try {
+        await apiRequest('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+        
+        document.getElementById('forgot-step-1').classList.add('hidden');
+        document.getElementById('forgot-step-2').classList.remove('hidden');
+        showToast('Código de recuperación enviado.', 'info');
+        
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+});
+
+document.getElementById('form-reset-password').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    const code = document.getElementById('reset-code').value;
+    const newPassword = document.getElementById('reset-new-password').value;
+    
+    try {
+        await apiRequest('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ email, code, newPassword })
+        });
+        
+        document.getElementById('modal-forgot-password').classList.add('hidden');
+        showToast('Contraseña actualizada correctamente. Inicia sesión.', 'success');
+        
+    } catch (err) {
+        showToast(err.message, 'error');
     }
 });
 
@@ -668,8 +771,16 @@ async function loadClienteViajes() {
                 ? '<span class="status-badge badge-success">Completado</span>'
                 : '<span class="status-badge badge-danger">Cancelado</span>';
                 
+            const rowData = encodeURIComponent(JSON.stringify({
+                fecha,
+                chofer_nombre: `${v.chofer_nombre} ${v.chofer_apellido}`,
+                vehiculo_modelo: `${v.vehiculo_marca} ${v.vehiculo_modelo}`,
+                vehiculo_placa: v.vehiculo_placa,
+                costo_total: parseFloat(v.costo_total).toFixed(2)
+            }));
+
             tbody.innerHTML += `
-                <tr>
+                <tr style="cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="showReceiptFromHistory('${rowData}')">
                     <td>${fecha}</td>
                     <td>
                         <div class="table-route-cell">
@@ -694,6 +805,18 @@ async function loadClienteViajes() {
         showToast('Error al cargar viajes.', 'error');
     }
 }
+
+// Función global para mostrar el recibo desde el historial
+window.showReceiptFromHistory = function(encodedData) {
+    const data = JSON.parse(decodeURIComponent(encodedData));
+    document.getElementById('receipt-date').textContent = data.fecha;
+    document.getElementById('receipt-driver-name').textContent = data.chofer_nombre;
+    document.getElementById('receipt-veh-model').textContent = data.vehiculo_modelo;
+    document.getElementById('receipt-veh-plate').textContent = data.vehiculo_placa;
+    document.getElementById('receipt-total').textContent = data.costo_total;
+    
+    document.getElementById('modal-receipt').classList.remove('hidden');
+};
 
 // Control de Tabs en Panel de Cliente
 document.getElementById('tab-historial-viajes').addEventListener('click', (e) => {
@@ -741,37 +864,131 @@ document.getElementById('form-request-ride').addEventListener('submit', async (e
             body: JSON.stringify({ origen, destino, distancia_km })
         });
 
-        // Simulamos un pequeño retraso para la animación
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // 1. Mostrar carrito saltando por 2 segundos
+        await new Promise(resolve => setTimeout(resolve, 2000));
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
 
-        // Llenar datos de éxito en el modal
-        document.getElementById('assigned-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
-        document.getElementById('assigned-driver-phone').textContent = res.chofer.telefono;
-        document.getElementById('assigned-veh-model').textContent = `${res.vehiculo.marca} ${res.vehiculo.modelo}`;
-        document.getElementById('assigned-veh-plate').textContent = res.vehiculo.placa;
-        document.getElementById('assigned-veh-color').textContent = res.vehiculo.color;
-        document.getElementById('assigned-ride-cost').textContent = parseFloat(res.costo_total).toFixed(2);
+        // Llenar datos ocultos del modal-receipt para usarlo al final (Factura digital)
+        document.getElementById('receipt-date').textContent = new Date().toLocaleDateString('es-VE');
+        document.getElementById('receipt-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
+        document.getElementById('receipt-veh-model').textContent = `${res.vehiculo.marca} ${res.vehiculo.modelo}`;
+        document.getElementById('receipt-veh-plate').textContent = res.vehiculo.placa;
+        document.getElementById('receipt-total').textContent = parseFloat(res.costo_total).toFixed(2);
 
-        // Mostrar modal de éxito
-        document.getElementById('modal-ride-success').classList.remove('hidden');
+        // 2. Ocultar el formulario y mostrar el panel de viaje activo
+        document.getElementById('request-ride-card').classList.add('hidden');
+        const activeTripCard = document.getElementById('active-trip-card');
+        activeTripCard.classList.remove('hidden');
         
-        // Resetear formulario
-        document.getElementById('form-request-ride').reset();
-        document.getElementById('ride-fare-est').textContent = '2.50';
+        // Resetear tracker a "Buscando"
+        const steps = ['buscando', 'asignado', 'camino', 'llegada'];
+        steps.forEach(s => {
+            document.getElementById(`icon-${s}`).style.background = 'rgba(255,255,255,0.1)';
+            document.getElementById(`text-${s}`).style.color = 'var(--text-secondary)';
+        });
+        document.getElementById('icon-buscando').style.background = 'var(--primary)';
+        document.getElementById('text-buscando').style.color = 'var(--primary)';
         
-        // Recargar interfaz del cliente
-        loadClienteSaldo();
-        loadClienteViajes();
+        document.getElementById('active-trip-info-box').classList.add('hidden');
+        document.getElementById('btn-finish-trip').classList.add('hidden');
+        document.getElementById('rating-container').classList.add('hidden');
+        
+        // Reset stars
+        document.querySelectorAll('.star-btn').forEach(s => s.style.color = '#555');
+        
+        const msgBox = document.getElementById('active-trip-message');
+        msgBox.textContent = 'Buscando el mejor conductor para ti...';
+
+        // Secuencia de animación de estados
+        setTimeout(() => {
+            // Paso 2: Asignado
+            document.getElementById('icon-asignado').style.background = 'var(--primary)';
+            document.getElementById('text-asignado').style.color = 'var(--primary)';
+            
+            // Mostrar info del chofer
+            document.getElementById('active-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
+            document.getElementById('active-driver-phone').textContent = res.chofer.telefono;
+            document.getElementById('active-veh-model').textContent = `${res.vehiculo.marca} ${res.vehiculo.modelo}`;
+            document.getElementById('active-veh-plate').textContent = res.vehiculo.placa;
+            document.getElementById('active-veh-color').textContent = res.vehiculo.color;
+            document.getElementById('active-trip-info-box').classList.remove('hidden');
+            msgBox.textContent = '¡Conductor encontrado!';
+            
+            setTimeout(() => {
+                // Paso 3: En camino / Viaje
+                document.getElementById('icon-camino').style.background = 'var(--primary)';
+                document.getElementById('text-camino').style.color = 'var(--primary)';
+                msgBox.textContent = 'El conductor va en camino hacia tu destino...';
+                
+                setTimeout(() => {
+                    // Paso 4: Llegada
+                    document.getElementById('icon-llegada').style.background = 'var(--accent-green)';
+                    document.getElementById('text-llegada').style.color = 'var(--accent-green)';
+                    document.getElementById('icon-llegada').style.borderColor = 'var(--accent-green)';
+                    msgBox.textContent = `¡Has llegado! Total debitado: $${parseFloat(res.costo_total).toFixed(2)}`;
+                    
+                    document.getElementById('rating-container').classList.remove('hidden');
+                    document.getElementById('btn-finish-trip').classList.remove('hidden');
+                    
+                    // Recargar tablas en el fondo
+                    loadClienteSaldo();
+                    loadClienteViajes();
+                }, 4000);
+            }, 3000);
+        }, 2000);
+        
     } catch (err) {
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
         showToast(err.message, 'error');
     }
 });
 
-// Cerrar modal de asignación exitosa
-document.querySelector('.btn-close-success').addEventListener('click', () => {
-    document.getElementById('modal-ride-success').classList.add('hidden');
+// Interactividad de las estrellas
+let selectedRating = 0;
+document.querySelectorAll('.star-btn').forEach(star => {
+    star.addEventListener('mouseover', (e) => {
+        const val = parseInt(e.target.dataset.value);
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.style.color = parseInt(s.dataset.value) <= val ? '#fbbf24' : '#555';
+        });
+    });
+    star.addEventListener('mouseout', () => {
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.style.color = parseInt(s.dataset.value) <= selectedRating ? '#fbbf24' : '#555';
+        });
+    });
+    star.addEventListener('click', (e) => {
+        selectedRating = parseInt(e.target.dataset.value);
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.style.color = parseInt(s.dataset.value) <= selectedRating ? '#fbbf24' : '#555';
+        });
+    });
+});
+
+// Botón para finalizar el viaje y mostrar recibo
+document.getElementById('btn-finish-trip').addEventListener('click', () => {
+    if (selectedRating === 0) {
+        showToast('Por favor califica a tu conductor primero.', 'warning');
+        return;
+    }
+    // Mostrar modal de Factura (Recibo tipo ticket)
+    document.getElementById('modal-receipt').classList.remove('hidden');
+    selectedRating = 0; // Reset para el próximo
+});
+
+// Cerrar modal de recibo exitoso y volver al mapa
+document.querySelector('.btn-close-receipt').addEventListener('click', () => {
+    document.getElementById('modal-receipt').classList.add('hidden');
+    
+    // Si la tarjeta de viaje activo está visible, significa que acabamos de terminar un viaje nuevo
+    if (!document.getElementById('active-trip-card').classList.contains('hidden')) {
+        // Restaurar UI
+        document.getElementById('active-trip-card').classList.add('hidden');
+        document.getElementById('request-ride-card').classList.remove('hidden');
+        document.getElementById('form-request-ride').reset();
+        document.getElementById('ride-fare-est').textContent = '2.50';
+        showToast('¡Factura guardada! Gracias por viajar con DeCarrerita.', 'success');
+    }
 });
 
 // Formulario: Registrar Recarga
@@ -1322,7 +1539,7 @@ async function loadAdminUsuarios() {
                     <td>Chofer</td>
                     <td><span class="status-badge badge-success">Activo</span></td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="window.toggleUsuarioEstado(${u.id_usuario}, true)">
+                        <button class="btn btn-danger btn-sm" onclick="window.confirmToggle(${u.id_usuario}, true, '${u.nombre} ${u.apellido}', 'usuario')">
                             Desactivar
                         </button>
                     </td>
@@ -1334,18 +1551,45 @@ async function loadAdminUsuarios() {
     }
 }
 
-window.toggleUsuarioEstado = async function(id, currentState) {
+window.confirmToggle = function(id, currentState, name, type) {
+    document.getElementById('confirm-toggle-id').value = id;
+    document.getElementById('confirm-toggle-state').value = currentState;
+    document.getElementById('confirm-toggle-message').textContent = currentState 
+        ? '¿Estás seguro que deseas DESACTIVAR a este ' + type + '?' 
+        : '¿Estás seguro que deseas REACTIVAR a este ' + type + '?';
+    document.getElementById('confirm-toggle-name').textContent = name;
+    
+    // Store type in a dataset for the confirm button
+    document.getElementById('btn-confirm-toggle').dataset.type = type;
+    
+    document.getElementById('modal-confirm-toggle').classList.remove('hidden');
+};
+
+document.getElementById('btn-confirm-toggle').addEventListener('click', async () => {
+    const id = document.getElementById('confirm-toggle-id').value;
+    const currentState = document.getElementById('confirm-toggle-state').value === 'true';
+    const type = document.getElementById('btn-confirm-toggle').dataset.type;
+    
     try {
-        const res = await apiRequest(`/admin/usuarios/${id}/estado`, {
+        const endpoint = type === 'usuario' 
+            ? `/admin/usuarios/${id}/estado` 
+            : `/admin/vehiculos/${id}/estado`;
+            
+        const res = await apiRequest(endpoint, {
             method: 'PUT',
             body: JSON.stringify({ activo: !currentState })
         });
+        
         showToast(res.message || 'Estado actualizado', 'success');
-        loadAdminUsuarios();
+        document.getElementById('modal-confirm-toggle').classList.add('hidden');
+        
+        if (type === 'usuario') loadAdminUsuarios();
+        else loadAdminVehiculos();
+        
     } catch (err) {
         showToast(err.message, 'error');
     }
-};
+});
 
 async function loadAdminVehiculos() {
     try {
@@ -1366,7 +1610,7 @@ async function loadAdminVehiculos() {
                     <td>${v.chofer_nombre}</td>
                     <td><span class="status-badge badge-success">Activo</span></td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="window.toggleVehiculoEstado(${v.id_vehiculo}, true)">
+                        <button class="btn btn-danger btn-sm" onclick="window.confirmToggle(${v.id_vehiculo}, true, '${v.placa} (${v.marca})', 'vehiculo')">
                             Desactivar
                         </button>
                     </td>
@@ -1377,19 +1621,6 @@ async function loadAdminVehiculos() {
         showToast('Error al cargar vehículos.', 'error');
     }
 }
-
-window.toggleVehiculoEstado = async function(id, currentState) {
-    try {
-        const res = await apiRequest(`/admin/vehiculos/${id}/estado`, {
-            method: 'PUT',
-            body: JSON.stringify({ activo: !currentState })
-        });
-        showToast(res.message || 'Estado actualizado', 'success');
-        loadAdminVehiculos();
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
-};
 
 // =====================================================================
 // CONFIGURACIÓN GLOBAL DE MODALES (CERRAR EN CLIC DE BORDES O BOTÓN X)

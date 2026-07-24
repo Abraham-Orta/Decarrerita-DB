@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
+const { sendAccountStatusEmail } = require('../services/mailService');
 
 // Requiere rol de personal_administrativo o administrador
 router.use(authenticateToken, authorizeRoles('personal_administrativo', 'administrador'));
@@ -377,6 +378,14 @@ router.put('/usuarios/:id/estado', async (req, res) => {
     }
 
     const [result] = await pool.query('UPDATE usuarios SET activo = ? WHERE id_usuario = ?', [activo, id]);
+
+    // Notificar al usuario por correo (fire-and-forget)
+    const [userData] = await pool.query('SELECT email, nombre FROM usuarios WHERE id_usuario = ?', [id]);
+    if (userData.length > 0) {
+      sendAccountStatusEmail(userData[0].email, userData[0].nombre, activo).catch((err) =>
+        console.error('⚠️ Error al enviar correo de estado de cuenta:', err.message)
+      );
+    }
 
     res.json({
       message: activo ? 'Usuario reactivado exitosamente.' : 'Usuario desactivado exitosamente.',
