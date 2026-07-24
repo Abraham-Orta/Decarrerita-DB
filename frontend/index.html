@@ -771,6 +771,27 @@
 
     </div>
 
+    
+    <!-- Pantalla de Carga (Loading Overlay) -->
+    <div id="payment-loading-overlay" class="hidden">
+        <div class="cart-loading-container">
+            <i class="fa-solid fa-cart-shopping jumping-cart"></i>
+            <p>Procesando pago y asignando conductor...</p>
+        </div>
+    </div>
+
+    
+    <!-- Pantalla de Carga (Liquidación Chofer) -->
+    <div id="liquidation-loading-overlay" class="hidden">
+        <div class="receipt-loading-container">
+            <div class="printer"></div>
+            <div class="receipt-paper">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+            </div>
+            <p>Procesando liquidación...</p>
+        </div>
+    </div>
+
     <!-- Cargar Lógica del Frontend (JS) -->
     <script src="lib/leaflet/leaflet.js"></script>
     <script src="lib/leaflet-routing-machine/leaflet-routing-machine.js"></script>

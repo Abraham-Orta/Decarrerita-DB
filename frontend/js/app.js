@@ -733,11 +733,17 @@ document.getElementById('form-request-ride').addEventListener('submit', async (e
     const destino = document.getElementById('ride-destino').value;
     const distancia_km = document.getElementById('ride-distancia').value;
 
+    const loadingOverlay = document.getElementById('payment-loading-overlay');
     try {
+        if (loadingOverlay) loadingOverlay.classList.remove('hidden');
         const res = await apiRequest('/clientes/traslados', {
             method: 'POST',
             body: JSON.stringify({ origen, destino, distancia_km })
         });
+
+        // Simulamos un pequeño retraso para la animación
+        await new Promise(resolve => setTimeout(resolve, 800));
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
 
         // Llenar datos de éxito en el modal
         document.getElementById('assigned-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
@@ -758,6 +764,7 @@ document.getElementById('form-request-ride').addEventListener('submit', async (e
         loadClienteSaldo();
         loadClienteViajes();
     } catch (err) {
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
         showToast(err.message, 'error');
     }
 });
@@ -1208,12 +1215,17 @@ document.getElementById('form-pagar-chofer').addEventListener('submit', async (e
     const fecha_pago = document.getElementById('pago-fecha').value;
     const nro_referencia = document.getElementById('pago-referencia').value;
 
+    const loadingOverlay = document.getElementById('liquidation-loading-overlay');
     try {
+        if (loadingOverlay) loadingOverlay.classList.remove('hidden');
         const res = await apiRequest('/admin/pagos', {
             method: 'POST',
             body: JSON.stringify({ id_chofer, fecha_pago, nro_referencia })
         });
 
+        // Retraso para ver la animacion
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
         showToast(res.message, 'success');
         document.getElementById('modal-pagar-chofer').classList.add('hidden');
         document.getElementById('form-pagar-chofer').reset();
@@ -1221,6 +1233,7 @@ document.getElementById('form-pagar-chofer').addEventListener('submit', async (e
         // Recargar datos administrativos
         loadAdminPendientesPago();
     } catch (err) {
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
         showToast(err.message, 'error');
     }
 });
