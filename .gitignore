@@ -2,3 +2,7 @@ node_modules/
 .env
 .DS_Store
 *.log
+add_admin_loading.js
+patch_app.js
+update_script.js
+backend/insert_test_trips.js

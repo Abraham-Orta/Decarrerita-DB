@@ -80,6 +80,9 @@ INSERT INTO recargas_saldo (id_cliente, nro_referencia, id_banco, monto, fecha) 
 (7, 'REF-998822', 1, 50.00, DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 5 DAY)),  -- Ana recarga $50
 (8, 'REF-112233', 3, 40.00, DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 DAY));   -- José recarga $40
 
+-- Aprobar las recargas para que se dispare el trigger y sume el saldo a los clientes
+UPDATE recargas_saldo SET estado = 'aprobada' WHERE estado = 'pendiente';
+
 -- 10. Insertar Traslados de Prueba
 -- Nota: La inserción automática de traslados restará el dinero del cliente por el Trigger trg_before_insert_traslado
 -- Traslado 1: Ana viaja con Juan
