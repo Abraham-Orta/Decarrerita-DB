@@ -19,12 +19,12 @@ INSERT INTO usuarios (email, password, nombre, apellido, telefono, cedula, tipo_
 ('admin@decarrerita.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Alejandro', 'Mendoza', '0414-1234567', 'V-11222333', 'administrador'),
 ('pedro.admin@decarrerita.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Pedro', 'Gómez', '0424-9876543', 'V-22333444', 'personal_administrativo'),
 ('maria.admin@decarrerita.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'María', 'Herrera', '0416-5554433', 'V-14555666', 'personal_administrativo'),
-('juan.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Juan', 'Pérez', '0412-1112233', 'V-15888999', 'chofer'),
-('carlos.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Carlos', 'Rodríguez', '0424-2223344', 'V-17999000', 'chofer'),
-('luis.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Luis', 'Sánchez', '0414-3334455', 'V-19111222', 'chofer'),
-('ana.cliente@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Ana', 'Silva', '0412-4445566', 'V-20333444', 'cliente'),
-('jose.cliente@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'José', 'Díaz', '0416-6667788', 'V-25666777', 'cliente'),
-('oscar.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Oscar', 'D''León', '0414-7778899', 'V-55556666', 'chofer');
+('juan.chofer@test.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Juan', 'Pérez', '0412-1112233', 'V-15888999', 'chofer'),
+('carlos.chofer@test.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Carlos', 'Rodríguez', '0424-2223344', 'V-17999000', 'chofer'),
+('luis.chofer@test.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Luis', 'Sánchez', '0414-3334455', 'V-19111222', 'chofer'),
+('ana.cliente@test.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Ana', 'Silva', '0412-4445566', 'V-20333444', 'cliente'),
+('jose.cliente@test.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'José', 'Díaz', '0416-6667788', 'V-25666777', 'cliente'),
+('oscar.chofer@test.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Oscar', 'D''León', '0414-7778899', 'V-55556666', 'chofer');
 
 -- 3. Especializar Clientes (id_usuario 7 y 8)
 INSERT INTO clientes (id_usuario, saldo) VALUES
