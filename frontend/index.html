@@ -449,6 +449,7 @@
                                         <th>Referencia</th>
                                         <th>Banco Origen</th>
                                         <th>Monto</th>
+                                        <th>Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-cliente-recargas-body">
@@ -472,6 +473,10 @@
                         <p class="modal-help-text">
                             Realiza tu transferencia a las cuentas de la empresa e ingresa los datos a continuación:
                         </p>
+                        <div class="input-group">
+                            <label for="recarga-fecha">Fecha de Transferencia</label>
+                            <input type="date" id="recarga-fecha" required>
+                        </div>
                         <div class="input-group">
                             <label for="recarga-banco">Banco de Origen</label>
                             <div class="select-wrapper">
@@ -784,8 +789,10 @@
                     <!-- Pestañas de Administración -->
                     <div class="section-tabs">
                         <button id="tab-admin-pagos" class="sect-tab active">Liquidaciones Pendientes</button>
+                        <button id="tab-admin-recargas" class="sect-tab">Validación de Recargas</button>
                         <button id="tab-admin-reportes" class="sect-tab">Reportes y Estadísticas</button>
                         <button id="tab-admin-gestion" class="sect-tab">Gestión de Personal</button>
+                        <button id="tab-admin-evaluaciones" class="sect-tab">Historial de Pruebas y Revisiones</button>
                     </div>
 
                     <!-- Panel de Liquidación de Choferes -->
@@ -801,6 +808,40 @@
                                     </tr>
                                 </thead>
                                 <tbody id="table-admin-pendientes-body">
+                                    <!-- Cargado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Validación de Recargas -->
+                    <div id="panel-admin-recargas" class="table-card hidden">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                            <p class="section-help-text" style="margin-bottom: 0;">Gestiona y audita las transferencias de saldo registradas por los clientes:</p>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <label style="font-size: 0.85rem; color: #a1a1aa;">Filtrar:</label>
+                                <select id="admin-recargas-filtro" style="width: auto; padding: 4px 10px; font-size: 0.85rem; border-radius: 8px;">
+                                    <option value="todos">Todas las recargas</option>
+                                    <option value="pendiente" selected>Pendientes de verificación</option>
+                                    <option value="aprobada">Aprobadas (Disponibles)</option>
+                                    <option value="rechazada">Rechazadas</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Banco Origen</th>
+                                        <th>Referencia</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                        <th style="text-align: right;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-admin-recargas-body">
                                     <!-- Cargado por JS -->
                                 </tbody>
                             </table>
@@ -827,9 +868,9 @@
                                         <input type="date" id="rep-ganancias-hasta">
                                     </div>
                                 </div>
-                                <button id="btn-rep-ganancias" class="btn btn-secondary btn-sm btn-block mt-3">Generar Reporte</button>
+                                <button id="btn-rep-ganancias" class="btn btn-secondary btn-sm btn-block mt-3">Filtrar por Fechas</button>
                                 
-                                <div id="res-rep-ganancias" class="report-result-box hidden">
+                                <div id="res-rep-ganancias" class="report-result-box">
                                     <div class="rep-metric">
                                         <span class="rep-lbl">Ganancias Brutas:</span>
                                         <span class="rep-val" id="val-rep-ganancias">$0.00</span>
@@ -863,9 +904,9 @@
                                         <input type="date" id="rep-chofer-hasta">
                                     </div>
                                 </div>
-                                <button id="btn-rep-chofer" class="btn btn-secondary btn-sm btn-block mt-3">Generar Reporte</button>
+                                <button id="btn-rep-chofer" class="btn btn-secondary btn-sm btn-block mt-3">Filtrar por Chofer / Fechas</button>
                                 
-                                <div id="res-rep-chofer" class="report-result-box hidden">
+                                <div id="res-rep-chofer" class="report-result-box">
                                     <div class="rep-metric">
                                         <span class="rep-lbl">Total Cancelado:</span>
                                         <span class="rep-val" id="val-rep-chofer">$0.00</span>
@@ -924,6 +965,51 @@
                         </div>
                     </div>
 
+                    <!-- Panel de Historial de Evaluaciones y Revisiones -->
+                    <div id="panel-admin-evaluaciones" class="hidden">
+                        <div class="table-card mb-4">
+                            <h3><i class="fa-solid fa-brain highlight"></i> Historial de Pruebas Psicológicas (Choferes)</h3>
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Chofer</th>
+                                            <th>Cédula</th>
+                                            <th>Nota (Mín. 73)</th>
+                                            <th>Estado</th>
+                                            <th>Evaluador</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-admin-psico-body">
+                                        <!-- Cargado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="table-card">
+                            <h3><i class="fa-solid fa-wrench highlight"></i> Historial de Revisiones Mecánicas (Vehículos)</h3>
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Vehículo</th>
+                                            <th>Chofer</th>
+                                            <th>Nota (Mín. 65)</th>
+                                            <th>Estado</th>
+                                            <th>Evaluador</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-admin-mecanica-body">
+                                        <!-- Cargado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -960,13 +1046,32 @@
                             <span class="lbl">Conductor:</span>
                             <strong id="pago-chofer-nombre">Nombre Chofer</strong>
                             <br>
-                            <span class="lbl">Monto a liquidar:</span>
+                            <span class="lbl">Monto a liquidar (70%):</span>
                             <span class="val-destacado">$<span id="pago-chofer-monto">0.00</span></span>
-                            <p class="help-desc">
-                                Este monto cubre el 70% correspondiente de todos sus traslados pendientes.
+                            <p class="help-desc" style="margin-top: 8px; margin-bottom: 4px; font-weight: 600;">
+                                Traslados completados que se cancelan en esta liquidación:
                             </p>
+                            <div style="max-height: 180px; overflow-y: auto; background: rgba(15, 23, 42, 0.7); padding: 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.82rem; color: #e2e8f0;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; text-align: left;">
+                                            <th style="padding: 4px;">Ruta / Fecha</th>
+                                            <th style="padding: 4px; text-align: right;">Total</th>
+                                            <th style="padding: 4px; text-align: right; color: #4ade80;">Chofer</th>
+                                            <th style="padding: 4px; text-align: right; color: #60a5fa;">Empresa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pago-chofer-viajes-tbody">
+                                        <!-- Cargado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
+                        <div class="input-group">
+                            <label for="pago-monto-input">Monto a Transferir ($)</label>
+                            <input type="number" step="0.01" id="pago-monto-input" required readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+                        </div>
                         <div class="input-group">
                             <label for="pago-fecha">Fecha del Pago</label>
                             <input type="date" id="pago-fecha" required>

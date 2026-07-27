@@ -150,6 +150,65 @@ router.post('/evaluaciones/vehiculos', async (req, res) => {
   }
 });
 
+router.get('/evaluaciones/choferes', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT ec.id_evaluacion, ec.nota, ec.fecha_evaluacion, ec.aprobado,
+              u.nombre AS chofer_nombre, u.apellido AS chofer_apellido, u.cedula,
+              adm.nombre AS admin_nombre, adm.apellido AS admin_apellido
+       FROM evaluaciones_choferes ec
+       JOIN choferes c ON ec.id_chofer = c.id_usuario
+       JOIN usuarios u ON c.id_usuario = u.id_usuario
+       JOIN usuarios adm ON ec.id_admin = adm.id_usuario
+       ORDER BY ec.fecha_evaluacion DESC, ec.id_evaluacion DESC`
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener el historial de evaluaciones psicológicas.' });
+  }
+});
+
+router.get('/evaluaciones/vehiculos', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT ev.id_evaluacion_veh, ev.nota, ev.fecha_evaluacion, ev.aprobado,
+              v.placa, v.marca, v.modelo,
+              u.nombre AS chofer_nombre, u.apellido AS chofer_apellido,
+              adm.nombre AS admin_nombre, adm.apellido AS admin_apellido
+       FROM evaluaciones_vehiculos ev
+       JOIN vehiculos v ON ev.id_vehiculo = v.id_vehiculo
+       JOIN choferes c ON v.id_chofer = c.id_usuario
+       JOIN usuarios u ON c.id_usuario = u.id_usuario
+       JOIN usuarios adm ON ev.id_admin = adm.id_usuario
+       ORDER BY ev.fecha_evaluacion DESC, ev.id_evaluacion_veh DESC`
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener el historial de revisiones vehiculares.' });
+  }
+});
+
+router.get('/recargas', async (req, res) => {
+  try {
+    const { estado } = req.query;
+    let query = `SELECT r.id_recarga, r.fecha, r.nro_referencia, r.monto, r.estado,
+                        b.nombre AS banco_origen, u.nombre AS cliente_nombre, u.apellido AS cliente_apellido
+                 FROM recargas_saldo r
+                 JOIN bancos b ON r.id_banco = b.id_banco
+                 JOIN usuarios u ON r.id_cliente = u.id_usuario`;
+    const params = [];
+    if (estado && estado !== 'todos') {
+      query += ` WHERE r.estado = ?`;
+      params.push(estado);
+    }
+    query += ` ORDER BY FIELD(r.estado, 'pendiente', 'aprobada', 'rechazada'), r.fecha DESC`;
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener recargas.' });
+  }
+});
+
 router.get('/recargas/pendientes', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -175,18 +234,45 @@ router.put('/recargas/:id_recarga/estado', async (req, res) => {
     return res.status(400).json({ error: 'Estado inválido. Debe ser aprobada o rechazada.' });
   }
 
+  const connection = await pool.getConnection();
   try {
-    const [result] = await pool.query(
-      `UPDATE recargas_saldo SET estado = ? WHERE id_recarga = ? AND estado = 'pendiente'`,
-      [estado, id_recarga]
+    await connection.beginTransaction();
+
+    // 1. Obtener datos de la recarga antes de actualizar
+    const [recargaRows] = await connection.query(
+      `SELECT id_cliente, monto, estado FROM recargas_saldo WHERE id_recarga = ? FOR UPDATE`,
+      [id_recarga]
     );
 
-    if (result.affectedRows === 0) {
+    if (recargaRows.length === 0 || recargaRows[0].estado !== 'pendiente') {
+      await connection.rollback();
+      connection.release();
       return res.status(404).json({ error: 'Recarga no encontrada o ya procesada.' });
     }
 
+    const recarga = recargaRows[0];
+
+    // 2. Actualizar estado en recargas_saldo
+    await connection.query(
+      `UPDATE recargas_saldo SET estado = ?, id_admin = ? WHERE id_recarga = ?`,
+      [estado, req.user.id_usuario, id_recarga]
+    );
+
+    // 3. Si se aprueba, sumar al saldo del cliente explícitamente en la capa de aplicación
+    if (estado === 'aprobada') {
+      await connection.query(
+        `UPDATE clientes SET saldo = saldo + ? WHERE id_usuario = ?`,
+        [recarga.monto, recarga.id_cliente]
+      );
+    }
+
+    await connection.commit();
+    connection.release();
+
     res.json({ message: `Recarga ${estado} exitosamente.` });
   } catch (error) {
+    await connection.rollback();
+    connection.release();
     res.status(500).json({ error: 'Error al actualizar el estado de la recarga.' });
   }
 });
@@ -205,13 +291,31 @@ router.get('/choferes/pendientes', async (req, res) => {
   }
 });
 
+// Obtener lista de viajes pendientes por liquidar a un chofer específico con su desglose de montos
+router.get('/choferes/:id_chofer/viajes-pendientes', async (req, res) => {
+  const { id_chofer } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `SELECT t.id_traslado, t.fecha, t.origen, t.destino,
+              t.costo_total, t.monto_chofer, t.monto_empresa
+       FROM traslados t
+       WHERE t.id_chofer = ? AND t.pagado_a_chofer = FALSE AND t.estado = 'completado'
+       ORDER BY t.fecha ASC`,
+      [id_chofer]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener viajes pendientes del chofer.' });
+  }
+});
+
 // 6. Cancelar (Pagar) Traslados a un Chofer
 router.post('/pagos', async (req, res) => {
-  const { id_chofer, fecha_pago, nro_referencia } = req.body;
+  const { id_chofer, fecha_pago, nro_referencia, monto } = req.body;
   const id_admin = req.user.id_usuario;
 
-  if (!id_chofer || !fecha_pago || !nro_referencia) {
-    return res.status(400).json({ error: 'Faltan campos requeridos (id_chofer, fecha_pago, nro_referencia).' });
+  if (!id_chofer || !fecha_pago || !nro_referencia || monto === undefined) {
+    return res.status(400).json({ error: 'Faltan campos requeridos (id_chofer, fecha_pago, nro_referencia, monto).' });
   }
 
   const connection = await pool.getConnection();
@@ -230,6 +334,10 @@ router.post('/pagos', async (req, res) => {
 
     if (total_pendiente <= 0) {
       throw new Error('El chofer no tiene traslados pendientes por pagar.');
+    }
+
+    if (Math.abs(parseFloat(monto) - total_pendiente) > 0.05) {
+      throw new Error(`El monto especificado ($${parseFloat(monto).toFixed(2)}) no coincide con el saldo pendiente exacto a liquidar ($${total_pendiente.toFixed(2)}).`);
     }
 
     // 2. Insertar el registro de pago en pagos_choferes
@@ -269,22 +377,29 @@ router.post('/pagos', async (req, res) => {
 router.get('/reportes/ganancias', async (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query;
 
-  if (!fecha_inicio || !fecha_fin) {
-    return res.status(400).json({ error: 'Debe especificar fecha_inicio y fecha_fin.' });
-  }
-
   try {
-    const [rows] = await pool.query(
-      `SELECT COALESCE(SUM(monto_empresa), 0) AS ganancias_totales,
-              COUNT(id_traslado) AS total_viajes
-       FROM traslados
-       WHERE estado = 'completado' AND fecha >= ? AND fecha <= ?`,
-      [`${fecha_inicio} 00:00:00`, `${fecha_fin} 23:59:59`]
-    );
+    let query = `SELECT COALESCE(SUM(monto_empresa), 0) AS ganancias_totales,
+                        COUNT(id_traslado) AS total_viajes
+                 FROM traslados
+                 WHERE estado = 'completado'`;
+    const params = [];
+
+    if (fecha_inicio && fecha_fin) {
+      query += ` AND fecha >= ? AND fecha <= ?`;
+      params.push(`${fecha_inicio} 00:00:00`, `${fecha_fin} 23:59:59`);
+    } else if (fecha_inicio) {
+      query += ` AND fecha >= ?`;
+      params.push(`${fecha_inicio} 00:00:00`);
+    } else if (fecha_fin) {
+      query += ` AND fecha <= ?`;
+      params.push(`${fecha_fin} 23:59:59`);
+    }
+
+    const [rows] = await pool.query(query, params);
 
     res.json({
-      fecha_inicio,
-      fecha_fin,
+      fecha_inicio: fecha_inicio || 'Histórico',
+      fecha_fin: fecha_fin || 'Actual',
       ganancias_totales: parseFloat(rows[0].ganancias_totales).toFixed(2),
       total_viajes: rows[0].total_viajes
     });
@@ -293,36 +408,70 @@ router.get('/reportes/ganancias', async (req, res) => {
   }
 });
 
-// 8. Reporte: Monto Cancelado (Pagado) a un Chofer específico en un período
+// 8. Reporte: Monto Cancelado (Pagado) a un Chofer o todos en un período
 router.get('/reportes/pagos-chofer', async (req, res) => {
   const { id_chofer, fecha_inicio, fecha_fin } = req.query;
 
-  if (!id_chofer || !fecha_inicio || !fecha_fin) {
-    return res.status(400).json({ error: 'Faltan parámetros de consulta (id_chofer, fecha_inicio, fecha_fin).' });
-  }
-
   try {
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+
+    if (id_chofer && id_chofer !== 'todos' && id_chofer !== '') {
+      whereClause += ' AND p.id_chofer = ?';
+      params.push(id_chofer);
+    }
+
+    if (fecha_inicio && fecha_fin) {
+      whereClause += ' AND p.fecha_pago >= ? AND p.fecha_pago <= ?';
+      params.push(fecha_inicio, fecha_fin);
+    } else if (fecha_inicio) {
+      whereClause += ' AND p.fecha_pago >= ?';
+      params.push(fecha_inicio);
+    } else if (fecha_fin) {
+      whereClause += ' AND p.fecha_pago <= ?';
+      params.push(fecha_fin);
+    }
+
     const [rows] = await pool.query(
-      `SELECT COALESCE(SUM(monto_pagado), 0) AS total_cancelado
-       FROM pagos_choferes
-       WHERE id_chofer = ? AND fecha_pago >= ? AND fecha_pago <= ?`,
-      [id_chofer, fecha_inicio, fecha_fin]
+      `SELECT COALESCE(SUM(p.monto_pagado), 0) AS total_cancelado
+       FROM pagos_choferes p
+       ${whereClause}`,
+      params
     );
 
     const [detalles] = await pool.query(
-      `SELECT id_pago, fecha_pago, nro_referencia, monto_pagado
-       FROM pagos_choferes
-       WHERE id_chofer = ? AND fecha_pago >= ? AND fecha_pago <= ?
-       ORDER BY fecha_pago DESC`,
-      [id_chofer, fecha_inicio, fecha_fin]
+      `SELECT p.id_pago, p.fecha_pago, p.nro_referencia, p.monto_pagado,
+              u.nombre, u.apellido
+       FROM pagos_choferes p
+       JOIN choferes c ON p.id_chofer = c.id_usuario
+       JOIN usuarios u ON c.id_usuario = u.id_usuario
+       ${whereClause}
+       ORDER BY p.fecha_pago DESC`,
+      params
+    );
+
+    const detallesConViajes = await Promise.all(
+      detalles.map(async (pago) => {
+        const [viajes] = await pool.query(
+          `SELECT id_traslado, fecha, origen, destino, costo_total, monto_chofer, monto_empresa
+           FROM traslados
+           WHERE id_pago = ?
+           ORDER BY fecha ASC`,
+          [pago.id_pago]
+        );
+        return {
+          ...pago,
+          viajes
+        };
+      })
     );
 
     res.json({
-      id_chofer,
-      fecha_inicio,
-      fecha_fin,
+      id_chofer: id_chofer || 'todos',
+      fecha_inicio: fecha_inicio || 'Histórico',
+      fecha_fin: fecha_fin || 'Actual',
       total_cancelado: parseFloat(rows[0].total_cancelado).toFixed(2),
-      historial_pagos: detalles
+      historial_pagos: detallesConViajes
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al generar el reporte de pagos al chofer.' });
@@ -360,6 +509,9 @@ router.get('/reportes/listas/vehiculos', async (req, res) => {
   }
 });
 router.put('/usuarios/:id/estado', async (req, res) => {
+  if (req.user.tipo_usuario !== 'administrador') {
+    return res.status(403).json({ error: 'Solo un administrador puede activar o desactivar usuarios.' });
+  }
   const { id } = req.params;
   const { activo } = req.body;
 
@@ -371,10 +523,6 @@ router.put('/usuarios/:id/estado', async (req, res) => {
     const [userRows] = await pool.query('SELECT tipo_usuario FROM usuarios WHERE id_usuario = ?', [id]);
     if (userRows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
-    }
-
-    if (['administrador', 'personal_administrativo'].includes(userRows[0].tipo_usuario) && req.user.tipo_usuario !== 'administrador') {
-      return res.status(403).json({ error: 'Solo un administrador puede modificar personal interno.' });
     }
 
     const [result] = await pool.query('UPDATE usuarios SET activo = ? WHERE id_usuario = ?', [activo, id]);
@@ -397,6 +545,9 @@ router.put('/usuarios/:id/estado', async (req, res) => {
 });
 
 router.put('/vehiculos/:id/estado', async (req, res) => {
+  if (req.user.tipo_usuario !== 'administrador') {
+    return res.status(403).json({ error: 'Solo un administrador puede activar o desactivar vehículos.' });
+  }
   const { id } = req.params;
   const { activo } = req.body;
 

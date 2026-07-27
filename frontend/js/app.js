@@ -733,18 +733,27 @@ async function loadClienteRecargas() {
         tbody.innerHTML = '';
         
         if (recargas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No has registrado recargas de saldo aún.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No has registrado recargas de saldo aún.</td></tr>';
             return;
         }
 
         recargas.forEach(r => {
             const fecha = new Date(r.fecha).toLocaleDateString('es-VE', { hour: '2-digit', minute: '2-digit' });
+            let badgeHtml = '';
+            if (r.estado === 'aprobada') {
+                badgeHtml = '<span style="background: rgba(16, 185, 129, 0.15); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-block;"><i class="fa-solid fa-check-circle"></i> Disponible</span>';
+            } else if (r.estado === 'rechazada') {
+                badgeHtml = '<span style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(244, 63, 94, 0.3); display: inline-block;"><i class="fa-solid fa-times-circle"></i> Rechazada</span>';
+            } else {
+                badgeHtml = '<span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(245, 158, 11, 0.3); display: inline-block;"><i class="fa-solid fa-clock"></i> Pendiente</span>';
+            }
             tbody.innerHTML += `
                 <tr>
                     <td>${fecha}</td>
                     <td><code>${r.nro_referencia}</code></td>
                     <td>${r.banco_origen}</td>
                     <td class="color-green font-bold">+$${parseFloat(r.monto).toFixed(2)}</td>
+                    <td>${badgeHtml}</td>
                 </tr>
             `;
         });
@@ -835,6 +844,7 @@ document.getElementById('tab-historial-recargas').addEventListener('click', (e) 
 
 // Modales del Cliente (Carga Saldo)
 document.getElementById('btn-open-recarga').addEventListener('click', () => {
+    document.getElementById('recarga-fecha').value = new Date().toISOString().substring(0, 10);
     document.getElementById('modal-recarga').classList.remove('hidden');
 });
 
@@ -994,6 +1004,7 @@ document.querySelector('.btn-close-receipt').addEventListener('click', () => {
 // Formulario: Registrar Recarga
 document.getElementById('form-recarga').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const fecha = document.getElementById('recarga-fecha').value;
     const id_banco = document.getElementById('recarga-banco').value;
     const nro_referencia = document.getElementById('recarga-referencia').value;
     const monto = document.getElementById('recarga-monto').value;
@@ -1001,7 +1012,7 @@ document.getElementById('form-recarga').addEventListener('submit', async (e) => 
     try {
         const data = await apiRequest('/clientes/recargas', {
             method: 'POST',
-            body: JSON.stringify({ id_banco, nro_referencia, monto })
+            body: JSON.stringify({ fecha, id_banco, nro_referencia, monto })
         });
 
         showToast(data.message, 'success');
@@ -1083,10 +1094,13 @@ async function loadChoferViajes(filters = {}) {
     if (currentChoferTab === 'pagados') endpoint = '/choferes/traslados/pagados';
     if (currentChoferTab === 'pendientes') endpoint = '/choferes/traslados/pendientes';
 
+    const fInicio = filters.fecha_inicio !== undefined ? filters.fecha_inicio : (document.getElementById('chofer-filter-desde')?.value || '');
+    const fFin = filters.fecha_fin !== undefined ? filters.fecha_fin : (document.getElementById('chofer-filter-hasta')?.value || '');
+
     // Construir query string de fechas si aplica
     const params = new URLSearchParams();
-    if (filters.fecha_inicio) params.append('fecha_inicio', filters.fecha_inicio);
-    if (filters.fecha_fin) params.append('fecha_fin', filters.fecha_fin);
+    if (fInicio) params.append('fecha_inicio', fInicio);
+    if (fFin) params.append('fecha_fin', fFin);
     
     const queryString = params.toString();
     const finalEndpoint = queryString ? `${endpoint}?${queryString}` : endpoint;
@@ -1149,14 +1163,14 @@ document.getElementById('tab-chofer-viajes-todos').addEventListener('click', () 
 document.getElementById('tab-chofer-viajes-pendientes').addEventListener('click', () => {
     currentChoferTab = 'pendientes';
     setActiveChoferTab('tab-chofer-viajes-pendientes');
-    document.getElementById('chofer-filter-box').classList.add('hidden');
+    document.getElementById('chofer-filter-box').classList.remove('hidden');
     loadChoferViajes();
 });
 
 document.getElementById('tab-chofer-viajes-pagados').addEventListener('click', () => {
     currentChoferTab = 'pagados';
     setActiveChoferTab('tab-chofer-viajes-pagados');
-    document.getElementById('chofer-filter-box').classList.add('hidden');
+    document.getElementById('chofer-filter-box').classList.remove('hidden');
     loadChoferViajes();
 });
 
@@ -1207,11 +1221,23 @@ document.getElementById('form-vehiculo').addEventListener('submit', async (e) =>
 // PANEL DE ADMINISTRACIÓN (LÓGICA & EVENTOS)
 // =====================================================================
 function initAdminDashboard() {
+    const bancoCard = document.querySelector('.card-bancos-admin');
+    if (bancoCard) bancoCard.classList.remove('hidden');
+
+    if (currentUser && currentUser.tipo_usuario === 'personal_administrativo') {
+        const gestionTab = document.getElementById('tab-admin-gestion');
+        if (gestionTab) gestionTab.classList.add('hidden');
+    } else {
+        const gestionTab = document.getElementById('tab-admin-gestion');
+        if (gestionTab) gestionTab.classList.remove('hidden');
+    }
     loadAdminSelects();
     loadAdminPendientesPago();
     loadPublicBancos();
-    loadAdminUsuarios();
-    loadAdminVehiculos();
+    if (currentUser && currentUser.tipo_usuario === 'administrador') {
+        loadAdminUsuarios();
+        loadAdminVehiculos();
+    }
 }
 
 // Cargar conductores y vehículos en los selects de calificación y reportes
@@ -1253,7 +1279,7 @@ async function loadChoferesYVehiculos() {
 
         // Select de Reportes por Chofer
         const selRepChofer = document.getElementById('rep-chofer-id');
-        selRepChofer.innerHTML = '<option value="">-- Seleccionar --</option>';
+        selRepChofer.innerHTML = '<option value="todos">-- Todos los Choferes --</option>';
         choferes.forEach(c => {
             selRepChofer.innerHTML += `<option value="${c.id_usuario}">${c.nombre} ${c.apellido} (${c.cedula})</option>`;
         });
@@ -1265,6 +1291,10 @@ async function loadChoferesYVehiculos() {
         vehiculos.forEach(v => {
             selVeh.innerHTML += `<option value="${v.id_vehiculo}">${v.placa} - ${v.marca} ${v.modelo} (${v.chofer_nombre})</option>`;
         });
+
+        // Carga inicial automática de reportes sin filtro de fechas
+        loadReporteGanancias();
+        loadReporteChofer();
 
     } catch (err) {
         console.error('Error al precargar choferes y vehículos:', err.message);
@@ -1302,7 +1332,7 @@ async function loadAdminPendientesPago() {
 
         // Asignar eventos de click a botones de pago
         document.querySelectorAll('.btn-pagar-row').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const id = btn.getAttribute('data-id');
                 const nombre = btn.getAttribute('data-nombre');
                 const monto = btn.getAttribute('data-monto');
@@ -1310,16 +1340,124 @@ async function loadAdminPendientesPago() {
                 document.getElementById('pago-chofer-id').value = id;
                 document.getElementById('pago-chofer-nombre').textContent = nombre;
                 document.getElementById('pago-chofer-monto').textContent = parseFloat(monto).toFixed(2);
+                if (document.getElementById('pago-monto-input')) {
+                    document.getElementById('pago-monto-input').value = parseFloat(monto).toFixed(2);
+                }
                 
                 // Setear fecha actual por defecto
                 document.getElementById('pago-fecha').value = new Date().toISOString().substring(0, 10);
                 
+                // Cargar desglose de viajes pendientes del chofer en la tabla del modal
+                const tbodyViajes = document.getElementById('pago-chofer-viajes-tbody');
+                if (tbodyViajes) {
+                    tbodyViajes.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px;">Cargando traslados...</td></tr>';
+                    try {
+                        const viajes = await apiRequest(`/admin/choferes/${id}/viajes-pendientes`);
+                        tbodyViajes.innerHTML = '';
+                        if (viajes.length === 0) {
+                            tbodyViajes.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px;">No hay traslados pendientes.</td></tr>';
+                        } else {
+                            viajes.forEach(v => {
+                                const fechaStr = new Date(v.fecha).toLocaleDateString();
+                                tbodyViajes.innerHTML += `
+                                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                                        <td style="padding: 4px; color: #e2e8f0;"><strong>${v.origen} → ${v.destino}</strong><br><span style="color: #94a3b8; font-size: 0.75rem;">${fechaStr}</span></td>
+                                        <td style="padding: 4px; text-align: right; color: #e2e8f0;">$${parseFloat(v.costo_total).toFixed(2)}</td>
+                                        <td style="padding: 4px; text-align: right; color: #4ade80; font-weight: 600;">$${parseFloat(v.monto_chofer).toFixed(2)}</td>
+                                        <td style="padding: 4px; text-align: right; color: #60a5fa;">$${parseFloat(v.monto_empresa).toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            });
+                        }
+                    } catch (errViajes) {
+                        tbodyViajes.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Error al cargar traslados.</td></tr>';
+                    }
+                }
+
                 document.getElementById('modal-pagar-chofer').classList.remove('hidden');
             });
         });
 
     } catch (err) {
         showToast('Error al cargar pendientes de pago.', 'error');
+    }
+}
+
+// Cargar y gestionar recargas de saldo de clientes (Panel Admin)
+async function loadAdminRecargas() {
+    const filtro = document.getElementById('admin-recargas-filtro') ? document.getElementById('admin-recargas-filtro').value : 'pendiente';
+    const tbody = document.getElementById('table-admin-recargas-body');
+    if (!tbody) return;
+
+    try {
+        const url = filtro === 'todos' ? '/admin/recargas' : `/admin/recargas?estado=${filtro}`;
+        const recargas = await apiRequest(url);
+        tbody.innerHTML = '';
+
+        if (recargas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No hay recargas ${filtro === 'todos' ? 'registradas' : 'en estado ' + filtro}.</td></tr>`;
+            return;
+        }
+
+        recargas.forEach(r => {
+            const fechaStr = new Date(r.fecha).toLocaleDateString('es-VE', { hour: '2-digit', minute: '2-digit' });
+            let badgeHtml = '';
+            let accionesHtml = '';
+
+            if (r.estado === 'aprobada') {
+                badgeHtml = '<span style="background: rgba(16, 185, 129, 0.15); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-block;"><i class="fa-solid fa-check-circle"></i> Aprobada</span>';
+                accionesHtml = '<span style="color: #64748b; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Procesada</span>';
+            } else if (r.estado === 'rechazada') {
+                badgeHtml = '<span style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(244, 63, 94, 0.3); display: inline-block;"><i class="fa-solid fa-times-circle"></i> Rechazada</span>';
+                accionesHtml = '<span style="color: #64748b; font-size: 0.8rem;"><i class="fa-solid fa-ban"></i> Descartada</span>';
+            } else {
+                badgeHtml = '<span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(245, 158, 11, 0.3); display: inline-block;"><i class="fa-solid fa-clock"></i> Pendiente</span>';
+                accionesHtml = `
+                    <button class="btn btn-sm btn-action-recarga" data-id="${r.id_recarga}" data-estado="aprobada" style="background: #10b981; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; margin-right: 4px; cursor: pointer;">
+                        <i class="fa-solid fa-check"></i> Aceptar
+                    </button>
+                    <button class="btn btn-sm btn-action-recarga" data-id="${r.id_recarga}" data-estado="rechazada" style="background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer;">
+                        <i class="fa-solid fa-times"></i> Rechazar
+                    </button>
+                `;
+            }
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="white-space: nowrap;">${fechaStr}</td>
+                    <td><strong>${r.cliente_nombre} ${r.cliente_apellido}</strong></td>
+                    <td>${r.banco_origen}</td>
+                    <td><code style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${r.nro_referencia}</code></td>
+                    <td class="font-bold color-green">+$${parseFloat(r.monto).toFixed(2)}</td>
+                    <td>${badgeHtml}</td>
+                    <td style="text-align: right; white-space: nowrap;">${accionesHtml}</td>
+                </tr>
+            `;
+        });
+
+        document.querySelectorAll('.btn-action-recarga').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const idRecarga = btn.getAttribute('data-id');
+                const estado = btn.getAttribute('data-estado');
+                const actionText = estado === 'aprobada' ? 'aceptar y acreditar saldo en' : 'rechazar';
+                if (!confirm(`¿Estás seguro de ${actionText} esta recarga?`)) return;
+
+                btn.disabled = true;
+                try {
+                    const res = await apiRequest(`/admin/recargas/${idRecarga}/estado`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ estado })
+                    });
+                    showToast(res.message || 'Recarga procesada exitosamente.', 'success');
+                    loadAdminRecargas();
+                } catch (err) {
+                    showToast(err.message || 'Error al procesar la recarga.', 'error');
+                    btn.disabled = false;
+                }
+            });
+        });
+    } catch (err) {
+        showToast('Error al cargar recargas administrativas.', 'error');
     }
 }
 
@@ -1339,35 +1477,91 @@ document.getElementById('mini-tab-vehiculo').addEventListener('click', () => {
 });
 
 // Tabs Panel Admin
+function switchAdminTab(activeTabId, activePanelId) {
+    ['tab-admin-pagos', 'tab-admin-recargas', 'tab-admin-reportes', 'tab-admin-gestion', 'tab-admin-evaluaciones'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', id === activeTabId);
+    });
+    ['panel-admin-pagos', 'panel-admin-recargas', 'panel-admin-reportes', 'panel-admin-gestion', 'panel-admin-evaluaciones'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', id !== activePanelId);
+    });
+}
+
 document.getElementById('tab-admin-pagos').addEventListener('click', () => {
-    document.getElementById('tab-admin-pagos').classList.add('active');
-    document.getElementById('tab-admin-reportes').classList.remove('active');
-    document.getElementById('tab-admin-gestion').classList.remove('active');
-    document.getElementById('panel-admin-pagos').classList.remove('hidden');
-    document.getElementById('panel-admin-reportes').classList.add('hidden');
-    document.getElementById('panel-admin-gestion').classList.add('hidden');
+    switchAdminTab('tab-admin-pagos', 'panel-admin-pagos');
 });
 
+if (document.getElementById('tab-admin-recargas')) {
+    document.getElementById('tab-admin-recargas').addEventListener('click', () => {
+        switchAdminTab('tab-admin-recargas', 'panel-admin-recargas');
+        loadAdminRecargas();
+    });
+    document.getElementById('admin-recargas-filtro').addEventListener('change', () => {
+        loadAdminRecargas();
+    });
+}
+
 document.getElementById('tab-admin-reportes').addEventListener('click', () => {
-    document.getElementById('tab-admin-reportes').classList.add('active');
-    document.getElementById('tab-admin-pagos').classList.remove('active');
-    document.getElementById('tab-admin-gestion').classList.remove('active');
-    document.getElementById('panel-admin-reportes').classList.remove('hidden');
-    document.getElementById('panel-admin-pagos').classList.add('hidden');
-    document.getElementById('panel-admin-gestion').classList.add('hidden');
+    switchAdminTab('tab-admin-reportes', 'panel-admin-reportes');
     loadChoferesYVehiculos(); // Precargar listas de selects para reportes
 });
 
 document.getElementById('tab-admin-gestion').addEventListener('click', () => {
-    document.getElementById('tab-admin-gestion').classList.add('active');
-    document.getElementById('tab-admin-pagos').classList.remove('active');
-    document.getElementById('tab-admin-reportes').classList.remove('active');
-    document.getElementById('panel-admin-gestion').classList.remove('hidden');
-    document.getElementById('panel-admin-pagos').classList.add('hidden');
-    document.getElementById('panel-admin-reportes').classList.add('hidden');
+    switchAdminTab('tab-admin-gestion', 'panel-admin-gestion');
     loadAdminUsuarios();
     loadAdminVehiculos();
 });
+
+if (document.getElementById('tab-admin-evaluaciones')) {
+    document.getElementById('tab-admin-evaluaciones').addEventListener('click', () => {
+        switchAdminTab('tab-admin-evaluaciones', 'panel-admin-evaluaciones');
+        loadAdminEvaluaciones();
+    });
+}
+
+async function loadAdminEvaluaciones() {
+    try {
+        const [psico, meca] = await Promise.all([
+            apiRequest('/admin/evaluaciones/choferes'),
+            apiRequest('/admin/evaluaciones/vehiculos')
+        ]);
+
+        const tbodyPsico = document.getElementById('table-admin-psico-body');
+        if (!psico || psico.length === 0) {
+            tbodyPsico.innerHTML = '<tr><td colspan="6" class="text-center">No hay evaluaciones registradas.</td></tr>';
+        } else {
+            tbodyPsico.innerHTML = psico.map(e => `
+                <tr>
+                    <td>${new Date(e.fecha_evaluacion).toLocaleDateString()}</td>
+                    <td><div class="font-bold">${e.chofer_nombre} ${e.chofer_apellido}</div></td>
+                    <td>${e.cedula}</td>
+                    <td><span class="badge ${e.nota >= 73 ? 'badge-success' : 'badge-danger'}">${e.nota} / 100</span></td>
+                    <td><span class="badge ${e.aprobado ? 'badge-success' : 'badge-danger'}">${e.aprobado ? 'Aprobado' : 'Reprobado'}</span></td>
+                    <td>${e.admin_nombre} ${e.admin_apellido}</td>
+                </tr>
+            `).join('');
+        }
+
+        const tbodyMeca = document.getElementById('table-admin-mecanica-body');
+        if (!meca || meca.length === 0) {
+            tbodyMeca.innerHTML = '<tr><td colspan="6" class="text-center">No hay revisiones registradas.</td></tr>';
+        } else {
+            tbodyMeca.innerHTML = meca.map(r => `
+                <tr>
+                    <td>${new Date(r.fecha_evaluacion).toLocaleDateString()}</td>
+                    <td><div class="font-bold">${r.placa}</div><div class="text-sm">${r.marca} ${r.modelo}</div></td>
+                    <td>${r.chofer_nombre} ${r.chofer_apellido}</td>
+                    <td><span class="badge ${r.nota >= 65 ? 'badge-success' : 'badge-danger'}">${r.nota} / 100</span></td>
+                    <td><span class="badge ${r.aprobado ? 'badge-success' : 'badge-danger'}">${r.aprobado ? 'Apto' : 'No Apto'}</span></td>
+                    <td>${r.admin_nombre} ${r.admin_apellido}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (err) {
+        showToast('Error al cargar historial de evaluaciones.', 'error');
+    }
+}
 
 // Formulario: Guardar Nota Psicológica
 document.getElementById('form-eval-psicologia').addEventListener('submit', async (e) => {
@@ -1431,13 +1625,14 @@ document.getElementById('form-pagar-chofer').addEventListener('submit', async (e
     const id_chofer = document.getElementById('pago-chofer-id').value;
     const fecha_pago = document.getElementById('pago-fecha').value;
     const nro_referencia = document.getElementById('pago-referencia').value;
+    const monto = parseFloat(document.getElementById('pago-monto-input')?.value || document.getElementById('pago-chofer-monto')?.textContent);
 
     const loadingOverlay = document.getElementById('liquidation-loading-overlay');
     try {
         if (loadingOverlay) loadingOverlay.classList.remove('hidden');
         const res = await apiRequest('/admin/pagos', {
             method: 'POST',
-            body: JSON.stringify({ id_chofer, fecha_pago, nro_referencia })
+            body: JSON.stringify({ id_chofer, fecha_pago, nro_referencia, monto })
         });
 
         // Retraso para ver la animacion
@@ -1455,41 +1650,45 @@ document.getElementById('form-pagar-chofer').addEventListener('submit', async (e
     }
 });
 
-// Reporte 1: Ganancias de la Empresa
-document.getElementById('btn-rep-ganancias').addEventListener('click', async () => {
+// Reporte 1: Ganancias de la Empresa (Con filtros opcionales)
+async function loadReporteGanancias() {
     const fecha_inicio = document.getElementById('rep-ganancias-desde').value;
     const fecha_fin = document.getElementById('rep-ganancias-hasta').value;
 
-    if (!fecha_inicio || !fecha_fin) {
-        showToast('Debe ingresar ambas fechas.', 'error');
-        return;
-    }
-
     try {
-        const res = await apiRequest(`/admin/reportes/ganancias?fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`);
+        let url = '/admin/reportes/ganancias';
+        const params = new URLSearchParams();
+        if (fecha_inicio) params.append('fecha_inicio', fecha_inicio);
+        if (fecha_fin) params.append('fecha_fin', fecha_fin);
+        
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+
+        const res = await apiRequest(url);
         
         document.getElementById('val-rep-ganancias').textContent = `$${parseFloat(res.ganancias_totales).toFixed(2)}`;
         document.getElementById('val-rep-ganancias-viajes').textContent = res.total_viajes;
-        
         document.getElementById('res-rep-ganancias').classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');
     }
-});
+}
 
-// Reporte 2: Liquidaciones a un Chofer específico
-document.getElementById('btn-rep-chofer').addEventListener('click', async () => {
-    const id_chofer = document.getElementById('rep-chofer-id').value;
+// Reporte 2: Liquidaciones a un Chofer específico o Todos (Con filtros opcionales)
+async function loadReporteChofer() {
+    const id_chofer = document.getElementById('rep-chofer-id').value || 'todos';
     const fecha_inicio = document.getElementById('rep-chofer-desde').value;
     const fecha_fin = document.getElementById('rep-chofer-hasta').value;
 
-    if (!id_chofer || !fecha_inicio || !fecha_fin) {
-        showToast('Faltan parámetros para generar el reporte.', 'error');
-        return;
-    }
-
     try {
-        const res = await apiRequest(`/admin/reportes/pagos-chofer?id_chofer=${id_chofer}&fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`);
+        let url = `/admin/reportes/pagos-chofer`;
+        const params = new URLSearchParams();
+        params.append('id_chofer', id_chofer);
+        if (fecha_inicio) params.append('fecha_inicio', fecha_inicio);
+        if (fecha_fin) params.append('fecha_fin', fecha_fin);
+
+        url += `?${params.toString()}`;
+        const res = await apiRequest(url);
         
         document.getElementById('val-rep-chofer').textContent = `$${parseFloat(res.total_cancelado).toFixed(2)}`;
         
@@ -1497,13 +1696,49 @@ document.getElementById('btn-rep-chofer').addEventListener('click', async () => 
         listContainer.innerHTML = '';
         
         if (res.historial_pagos.length === 0) {
-            listContainer.innerHTML = '<li class="text-secondary text-center">No hay registros de liquidaciones en este rango de fechas.</li>';
+            listContainer.innerHTML = '<li class="text-secondary text-center">No hay registros de liquidaciones.</li>';
         } else {
             res.historial_pagos.forEach(p => {
+                let viajesHtml = '';
+                if (p.viajes && p.viajes.length > 0) {
+                    viajesHtml = `
+                        <div style="margin-top: 10px; padding: 8px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.85rem; width: 100%;">
+                            <strong style="color: #cbd5e1; display: block; margin-bottom: 6px; font-weight: 600;">Desglose de traslados liquidados (${p.viajes.length}):</strong>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; text-align: left;">
+                                        <th style="padding: 4px 0;">Ruta / Fecha</th>
+                                        <th style="text-align: right; padding: 4px 0;">Total</th>
+                                        <th style="text-align: right; color: #4ade80; padding: 4px 0;">Chofer (70%)</th>
+                                        <th style="text-align: right; color: #60a5fa; padding: 4px 0;">Empresa (30%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    p.viajes.forEach(v => {
+                        viajesHtml += `
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                                <td style="padding: 6px 0; color: #e2e8f0;">${v.origen} → ${v.destino} <span style="color:#64748b; font-size: 0.78rem;">(${new Date(v.fecha).toLocaleDateString()})</span></td>
+                                <td style="text-align: right; padding: 6px 0; color: #e2e8f0;">$${parseFloat(v.costo_total).toFixed(2)}</td>
+                                <td style="text-align: right; color: #4ade80; font-weight: 600; padding: 6px 0;">$${parseFloat(v.monto_chofer).toFixed(2)}</td>
+                                <td style="text-align: right; color: #60a5fa; padding: 6px 0;">$${parseFloat(v.monto_empresa).toFixed(2)}</td>
+                            </tr>
+                        `;
+                    });
+                    viajesHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
                 listContainer.innerHTML += `
-                    <li>
-                        <span>Ref: <code>${p.nro_referencia}</code> - ${new Date(p.fecha_pago).toLocaleDateString()}</span>
-                        <strong class="text-green">$${parseFloat(p.monto_pagado).toFixed(2)}</strong>
+                    <li style="flex-direction: column; align-items: flex-start; padding: 14px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                            <span style="color: #cbd5e1;"><strong style="color: #f8fafc; font-size: 1.05rem;">${p.nombre} ${p.apellido}</strong> | Ref: <code style="background: rgba(255, 255, 255, 0.1); color: #38bdf8; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); font-family: monospace;">${p.nro_referencia}</code> - ${new Date(p.fecha_pago).toLocaleDateString()}</span>
+                            <strong class="text-green" style="font-size: 1.15rem;">$${parseFloat(p.monto_pagado).toFixed(2)}</strong>
+                        </div>
+                        ${viajesHtml}
                     </li>
                 `;
             });
@@ -1513,7 +1748,11 @@ document.getElementById('btn-rep-chofer').addEventListener('click', async () => 
     } catch (err) {
         showToast(err.message, 'error');
     }
-});
+}
+
+document.getElementById('btn-rep-ganancias').addEventListener('click', loadReporteGanancias);
+document.getElementById('btn-rep-chofer').addEventListener('click', loadReporteChofer);
+document.getElementById('rep-chofer-id').addEventListener('change', loadReporteChofer);
 
 
 // =====================================================================

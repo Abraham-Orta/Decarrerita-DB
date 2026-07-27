@@ -119,17 +119,30 @@ router.get('/traslados', async (req, res) => {
 // 5. Traslados Pagados (Cancelados por la Empresa)
 router.get('/traslados/pagados', async (req, res) => {
   const id_chofer = req.user.id_usuario;
+  const { fecha_inicio, fecha_fin } = req.query;
+
+  let query = `
+    SELECT t.id_traslado, t.origen, t.destino, t.distancia_km, t.monto_chofer, t.fecha,
+           p.fecha_pago, p.nro_referencia AS pago_referencia
+    FROM traslados t
+    LEFT JOIN pagos_choferes p ON t.id_pago = p.id_pago
+    WHERE t.id_chofer = ? AND t.pagado_a_chofer = TRUE AND t.estado = 'completado'
+  `;
+  const queryParams = [id_chofer];
+
+  if (fecha_inicio) {
+    query += ' AND t.fecha >= ?';
+    queryParams.push(`${fecha_inicio} 00:00:00`);
+  }
+  if (fecha_fin) {
+    query += ' AND t.fecha <= ?';
+    queryParams.push(`${fecha_fin} 23:59:59`);
+  }
+
+  query += ' ORDER BY t.fecha DESC';
 
   try {
-    const [rows] = await pool.query(
-      `SELECT t.id_traslado, t.origen, t.destino, t.distancia_km, t.monto_chofer, t.fecha,
-              p.fecha_pago, p.nro_referencia AS pago_referencia
-       FROM traslados t
-       LEFT JOIN pagos_choferes p ON t.id_pago = p.id_pago
-       WHERE t.id_chofer = ? AND t.pagado_a_chofer = TRUE AND t.estado = 'completado'
-       ORDER BY t.fecha DESC`,
-      [id_chofer]
-    );
+    const [rows] = await pool.query(query, queryParams);
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener traslados pagados.' });
@@ -139,15 +152,28 @@ router.get('/traslados/pagados', async (req, res) => {
 // 6. Traslados Pendientes por Pagar (Pendientes por Cancelar)
 router.get('/traslados/pendientes', async (req, res) => {
   const id_chofer = req.user.id_usuario;
+  const { fecha_inicio, fecha_fin } = req.query;
+
+  let query = `
+    SELECT id_traslado, origen, destino, distancia_km, monto_chofer, fecha
+    FROM traslados
+    WHERE id_chofer = ? AND pagado_a_chofer = FALSE AND estado = 'completado'
+  `;
+  const queryParams = [id_chofer];
+
+  if (fecha_inicio) {
+    query += ' AND fecha >= ?';
+    queryParams.push(`${fecha_inicio} 00:00:00`);
+  }
+  if (fecha_fin) {
+    query += ' AND fecha <= ?';
+    queryParams.push(`${fecha_fin} 23:59:59`);
+  }
+
+  query += ' ORDER BY fecha DESC';
 
   try {
-    const [rows] = await pool.query(
-      `SELECT id_traslado, origen, destino, distancia_km, monto_chofer, fecha
-       FROM traslados
-       WHERE id_chofer = ? AND pagado_a_chofer = FALSE AND estado = 'completado'
-       ORDER BY fecha DESC`,
-      [id_chofer]
-    );
+    const [rows] = await pool.query(query, queryParams);
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener traslados pendientes.' });

@@ -9,11 +9,11 @@ router.use(authenticateToken, authorizeRoles('cliente'));
 
 // 1. Registrar Recarga de Saldo
 router.post('/recargas', async (req, res) => {
-  const { nro_referencia, id_banco, monto } = req.body;
+  const { nro_referencia, id_banco, monto, fecha } = req.body;
   const id_cliente = req.user.id_usuario;
 
-  if (!nro_referencia || !id_banco || !monto) {
-    return res.status(400).json({ error: 'Faltan campos para registrar la recarga.' });
+  if (!nro_referencia || !id_banco || !monto || !fecha) {
+    return res.status(400).json({ error: 'Faltan campos (referencia, banco, monto, fecha) para registrar la recarga.' });
   }
 
   if (parseFloat(monto) <= 0) {
@@ -23,9 +23,9 @@ router.post('/recargas', async (req, res) => {
   try {
     // Insertar recarga (el trigger trg_after_insert_recarga actualizará el saldo en clientes)
     const [result] = await pool.query(
-      `INSERT INTO recargas_saldo (id_cliente, nro_referencia, id_banco, monto) 
-       VALUES (?, ?, ?, ?)`,
-      [id_cliente, nro_referencia, id_banco, monto]
+      `INSERT INTO recargas_saldo (id_cliente, nro_referencia, id_banco, monto, fecha) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [id_cliente, nro_referencia, id_banco, monto, `${fecha} 12:00:00`]
     );
 
     res.status(201).json({
@@ -44,7 +44,7 @@ router.get('/recargas', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT r.id_recarga, r.fecha, r.nro_referencia, r.monto, b.nombre AS banco_origen
+      `SELECT r.id_recarga, r.fecha, r.nro_referencia, r.monto, r.estado, b.nombre AS banco_origen
        FROM recargas_saldo r
        JOIN bancos b ON r.id_banco = b.id_banco
        WHERE r.id_cliente = ?
@@ -124,21 +124,40 @@ router.post('/traslados', async (req, res) => {
     const randomIndex = Math.floor(Math.random() * choferesAptos.length);
     const choferAsignado = choferesAptos[randomIndex];
 
-    // 4. Insertar el traslado
-    // El trigger trg_before_insert_traslado se encargará de restar automáticamente el saldo del cliente
-    const [result] = await pool.query(
-      `INSERT INTO traslados (id_cliente, id_chofer, id_vehiculo, origen, destino, distancia_km, costo_total, estado, pagado_a_chofer)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'completado', FALSE)`,
-      [
-        id_cliente, 
-        choferAsignado.id_chofer, 
-        choferAsignado.id_vehiculo, 
-        origen, 
-        destino, 
-        dist, 
-        costo_total
-      ]
-    );
+    // 4. Iniciar transacción para descontar saldo e insertar el traslado en la capa de aplicación
+    const connection = await pool.getConnection();
+    let result;
+    try {
+      await connection.beginTransaction();
+
+      // Descontar saldo del cliente explícitamente
+      await connection.query(
+        'UPDATE clientes SET saldo = saldo - ? WHERE id_usuario = ?',
+        [costo_total, id_cliente]
+      );
+
+      // Insertar el traslado
+      [result] = await connection.query(
+        `INSERT INTO traslados (id_cliente, id_chofer, id_vehiculo, origen, destino, distancia_km, costo_total, estado, pagado_a_chofer)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'completado', FALSE)`,
+        [
+          id_cliente, 
+          choferAsignado.id_chofer, 
+          choferAsignado.id_vehiculo, 
+          origen, 
+          destino, 
+          dist, 
+          costo_total
+        ]
+      );
+
+      await connection.commit();
+    } catch (errTx) {
+      await connection.rollback();
+      throw errTx;
+    } finally {
+      connection.release();
+    }
 
     res.status(201).json({
       message: 'Traslado solicitado y asignado exitosamente.',
