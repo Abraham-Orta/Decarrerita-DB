@@ -23,7 +23,8 @@ INSERT INTO usuarios (email, password, nombre, apellido, telefono, cedula, tipo_
 ('carlos.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Carlos', 'Rodríguez', '0424-2223344', 'V-17999000', 'chofer'),
 ('luis.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Luis', 'Sánchez', '0414-3334455', 'V-19111222', 'chofer'),
 ('ana.cliente@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Ana', 'Silva', '0412-4445566', 'V-20333444', 'cliente'),
-('jose.cliente@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'José', 'Díaz', '0416-6667788', 'V-25666777', 'cliente');
+('jose.cliente@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'José', 'Díaz', '0416-6667788', 'V-25666777', 'cliente'),
+('oscar.chofer@gmail.com', '$2a$10$FqwhZ.8sQs.mQztMkhkBl.kzA0lcPB08gcAxubx7WsaFA7qTWnVya', 'Oscar', 'D''León', '0414-7778899', 'V-55556666', 'chofer');
 
 -- 3. Especializar Clientes (id_usuario 7 y 8)
 INSERT INTO clientes (id_usuario, saldo) VALUES
@@ -34,7 +35,8 @@ INSERT INTO clientes (id_usuario, saldo) VALUES
 INSERT INTO choferes (id_usuario, id_banco, nro_cuenta) VALUES
 (4, 1, '0102-0000-11-2233445566'), -- Juan en Banco de Venezuela
 (5, 2, '0134-1111-22-3344556677'), -- Carlos en Banesco
-(6, 3, '0105-2222-33-4455667788'); -- Luis en Mercantil
+(6, 3, '0105-2222-33-4455667788'), -- Luis en Mercantil
+(9, 1, '0102-3333-44-5566778899'); -- Oscar D'León en Banco de Venezuela
 
 -- 5. Insertar Contactos de Emergencia (mínimo 2 por chofer)
 INSERT INTO contactos_emergencia (id_chofer, nombre, telefono, relacion) VALUES
@@ -43,21 +45,25 @@ INSERT INTO contactos_emergencia (id_chofer, nombre, telefono, relacion) VALUES
 (5, 'Gladys Rodríguez', '0424-7778899', 'Esposa'),
 (5, 'Carlos Rodríguez Jr.', '0424-6665544', 'Hijo'),
 (6, 'Elena Sánchez', '0414-4443322', 'Esposa'),
-(6, 'Roberto Sánchez', '0414-2221100', 'Hermano');
+(6, 'Roberto Sánchez', '0414-2221100', 'Hermano'),
+(9, 'Ibrain Guerra', '0414-1112233', 'Manager'),
+(9, 'Zoraida D''León', '0424-5556677', 'Esposa');
 
 -- 6. Insertar Evaluaciones Psicológicas de Choferes
 -- Evaluador: Pedro Gómez (id 2) o María Herrera (id 3)
 INSERT INTO evaluaciones_choferes (id_chofer, nota, fecha_evaluacion, id_admin) VALUES
 (4, 85, DATE_SUB(CURRENT_DATE(), INTERVAL 10 DAY), 2), -- Aprobado (Juan)
 (5, 78, DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH), 3), -- Aprobado (Carlos)
-(6, 70, DATE_SUB(CURRENT_DATE(), INTERVAL 5 DAY), 2);   -- Reprobado (Luis, nota < 73)
+(6, 70, DATE_SUB(CURRENT_DATE(), INTERVAL 5 DAY), 2),   -- Reprobado (Luis, nota < 73)
+(9, 95, DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY), 2);   -- Aprobado (Oscar D'León)
 
 -- 7. Insertar Vehículos de Choferes
 INSERT INTO vehiculos (id_chofer, placa, marca, modelo, anio, color, activo) VALUES
 (4, 'AA123BB', 'Toyota', 'Corolla', 2015, 'Gris', TRUE),      -- De Juan
 (4, 'BB456CC', 'Chevrolet', 'Spark', 2012, 'Rojo', TRUE),      -- De Juan (segundo auto)
 (5, 'CC789DD', 'Hyundai', 'Elantra', 2018, 'Blanco', TRUE),    -- De Carlos
-(6, 'DD012EE', 'Ford', 'Fiesta', 2014, 'Azul', TRUE);          -- De Luis
+(6, 'DD012EE', 'Ford', 'Fiesta', 2014, 'Azul', TRUE),          -- De Luis
+(9, 'LLE001', 'Ford', 'Falcon', 1960, 'Blanco', TRUE);         -- De Oscar D'León
 
 -- 8. Insertar Evaluaciones de Vehículos
 -- Evaluador: Pedro Gómez (id 2) o María Herrera (id 3)
@@ -65,7 +71,8 @@ INSERT INTO evaluaciones_vehiculos (id_vehiculo, nota, fecha_evaluacion, id_admi
 (1, 90, DATE_SUB(CURRENT_DATE(), INTERVAL 10 DAY), 2), -- Aprobado (Corolla de Juan)
 (2, 60, DATE_SUB(CURRENT_DATE(), INTERVAL 10 DAY), 2), -- Reprobado (Spark de Juan, nota < 65)
 (3, 82, DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH), 3), -- Aprobado (Elantra de Carlos)
-(4, 75, DATE_SUB(CURRENT_DATE(), INTERVAL 5 DAY), 2);   -- Aprobado (Fiesta de Luis, pero Luis no está apto por psicología)
+(4, 75, DATE_SUB(CURRENT_DATE(), INTERVAL 5 DAY), 2),   -- Aprobado (Fiesta de Luis, pero Luis no está apto por psicología)
+(5, 88, DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY), 2);   -- Aprobado (Ford Falcon de Oscar D'León)
 
 -- Nota: 
 -- Choferes Aptos resultantes:
@@ -81,7 +88,7 @@ INSERT INTO recargas_saldo (id_cliente, nro_referencia, id_banco, monto, fecha) 
 (8, 'REF-112233', 3, 40.00, DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 DAY));   -- José recarga $40
 
 -- Aprobar las recargas para que se dispare el trigger y sume el saldo a los clientes
-UPDATE recargas_saldo SET estado = 'aprobada' WHERE estado = 'pendiente';
+UPDATE recargas_saldo SET estado = 'aprobada', id_admin = 2 WHERE estado = 'pendiente';
 
 -- 10. Insertar Traslados de Prueba
 -- Nota: La inserción automática de traslados restará el dinero del cliente por el Trigger trg_before_insert_traslado

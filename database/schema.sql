@@ -135,11 +135,14 @@ CREATE TABLE recargas_saldo (
     id_banco INT NOT NULL,
     monto DECIMAL(10, 2) NOT NULL,
     estado ENUM('pendiente', 'aprobada', 'rechazada') NOT NULL DEFAULT 'pendiente',
+    id_admin INT NULL,
     CONSTRAINT pk_recargas PRIMARY KEY (id_recarga),
     CONSTRAINT fk_recargas_clientes FOREIGN KEY (id_cliente) 
         REFERENCES clientes (id_usuario) ON DELETE CASCADE,
     CONSTRAINT fk_recargas_bancos FOREIGN KEY (id_banco) 
         REFERENCES bancos (id_banco),
+    CONSTRAINT fk_recargas_admin FOREIGN KEY (id_admin) 
+        REFERENCES usuarios (id_usuario) ON DELETE SET NULL,
     CONSTRAINT chk_recarga_monto CHECK (monto > 0.00)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -262,7 +262,14 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
         // Redirigir según el tipo
         initSession();
     } catch (error) {
-        showToast(error.message, 'error');
+        if (error.message.includes('Usuario inactivo')) {
+            showToast('Tu cuenta no está verificada. Por favor ingresa el código enviado a tu correo.', 'info');
+            document.getElementById('otp-email').value = email;
+            document.getElementById('modal-otp-verify').classList.remove('hidden');
+            document.getElementById('otp-code').focus();
+        } else {
+            showToast(error.message, 'error');
+        }
     }
 });
 
@@ -303,13 +310,109 @@ document.getElementById('form-register').addEventListener('submit', async (e) =>
             method: 'POST',
             body: JSON.stringify(payload)
         });
-        showToast('Registro exitoso. Inicia sesión ahora.', 'success');
         
-        // Volver al formulario de login
-        document.getElementById('tab-login').click();
-        document.getElementById('form-login').reset();
+        // Show OTP modal and populate email
+        document.getElementById('otp-email').value = email;
+        document.getElementById('modal-otp-verify').classList.remove('hidden');
+        document.getElementById('otp-code').focus();
+        showToast('Código enviado a tu correo. Por favor verifícalo.', 'info');
+        
     } catch (error) {
         showToast(error.message, 'error');
+    }
+});
+
+// =====================================================================
+// OTP VERIFICATION LOGIC
+// =====================================================================
+
+document.getElementById('form-otp-verify').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('otp-email').value;
+    const code = document.getElementById('otp-code').value;
+    
+    try {
+        await apiRequest('/auth/verify-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email, code })
+        });
+        
+        document.getElementById('modal-otp-verify').classList.add('hidden');
+        showToast('Cuenta verificada exitosamente. Ya puedes iniciar sesión.', 'success');
+        
+        document.getElementById('tab-login').click();
+        document.getElementById('form-login').reset();
+        document.getElementById('form-register').reset();
+        
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+});
+
+document.getElementById('btn-resend-otp').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('otp-email').value;
+    
+    try {
+        await apiRequest('/auth/resend-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+        showToast('Nuevo código enviado. Revisa tu correo.', 'info');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+});
+
+// =====================================================================
+// FORGOT PASSWORD LOGIC
+// =====================================================================
+
+document.getElementById('btn-forgot-password').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('forgot-step-1').classList.remove('hidden');
+    document.getElementById('forgot-step-2').classList.add('hidden');
+    document.getElementById('form-forgot-email').reset();
+    document.getElementById('form-reset-password').reset();
+    document.getElementById('modal-forgot-password').classList.remove('hidden');
+});
+
+document.getElementById('form-forgot-email').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    
+    try {
+        await apiRequest('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+        
+        document.getElementById('forgot-step-1').classList.add('hidden');
+        document.getElementById('forgot-step-2').classList.remove('hidden');
+        showToast('Código de recuperación enviado.', 'info');
+        
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+});
+
+document.getElementById('form-reset-password').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    const code = document.getElementById('reset-code').value;
+    const newPassword = document.getElementById('reset-new-password').value;
+    
+    try {
+        await apiRequest('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ email, code, newPassword })
+        });
+        
+        document.getElementById('modal-forgot-password').classList.add('hidden');
+        showToast('Contraseña actualizada correctamente. Inicia sesión.', 'success');
+        
+    } catch (err) {
+        showToast(err.message, 'error');
     }
 });
 
@@ -630,18 +733,27 @@ async function loadClienteRecargas() {
         tbody.innerHTML = '';
         
         if (recargas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No has registrado recargas de saldo aún.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No has registrado recargas de saldo aún.</td></tr>';
             return;
         }
 
         recargas.forEach(r => {
             const fecha = new Date(r.fecha).toLocaleDateString('es-VE', { hour: '2-digit', minute: '2-digit' });
+            let badgeHtml = '';
+            if (r.estado === 'aprobada') {
+                badgeHtml = '<span style="background: rgba(16, 185, 129, 0.15); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-block;"><i class="fa-solid fa-check-circle"></i> Disponible</span>';
+            } else if (r.estado === 'rechazada') {
+                badgeHtml = '<span style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(244, 63, 94, 0.3); display: inline-block;"><i class="fa-solid fa-times-circle"></i> Rechazada</span>';
+            } else {
+                badgeHtml = '<span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(245, 158, 11, 0.3); display: inline-block;"><i class="fa-solid fa-clock"></i> Pendiente</span>';
+            }
             tbody.innerHTML += `
                 <tr>
                     <td>${fecha}</td>
                     <td><code>${r.nro_referencia}</code></td>
                     <td>${r.banco_origen}</td>
                     <td class="color-green font-bold">+$${parseFloat(r.monto).toFixed(2)}</td>
+                    <td>${badgeHtml}</td>
                 </tr>
             `;
         });
@@ -668,8 +780,16 @@ async function loadClienteViajes() {
                 ? '<span class="status-badge badge-success">Completado</span>'
                 : '<span class="status-badge badge-danger">Cancelado</span>';
                 
+            const rowData = encodeURIComponent(JSON.stringify({
+                fecha,
+                chofer_nombre: `${v.chofer_nombre} ${v.chofer_apellido}`,
+                vehiculo_modelo: `${v.vehiculo_marca} ${v.vehiculo_modelo}`,
+                vehiculo_placa: v.vehiculo_placa,
+                costo_total: parseFloat(v.costo_total).toFixed(2)
+            }));
+
             tbody.innerHTML += `
-                <tr>
+                <tr style="cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="showReceiptFromHistory('${rowData}')">
                     <td>${fecha}</td>
                     <td>
                         <div class="table-route-cell">
@@ -695,6 +815,18 @@ async function loadClienteViajes() {
     }
 }
 
+// Función global para mostrar el recibo desde el historial
+window.showReceiptFromHistory = function(encodedData) {
+    const data = JSON.parse(decodeURIComponent(encodedData));
+    document.getElementById('receipt-date').textContent = data.fecha;
+    document.getElementById('receipt-driver-name').textContent = data.chofer_nombre;
+    document.getElementById('receipt-veh-model').textContent = data.vehiculo_modelo;
+    document.getElementById('receipt-veh-plate').textContent = data.vehiculo_placa;
+    document.getElementById('receipt-total').textContent = data.costo_total;
+    
+    document.getElementById('modal-receipt').classList.remove('hidden');
+};
+
 // Control de Tabs en Panel de Cliente
 document.getElementById('tab-historial-viajes').addEventListener('click', (e) => {
     document.getElementById('tab-historial-viajes').classList.add('active');
@@ -712,6 +844,7 @@ document.getElementById('tab-historial-recargas').addEventListener('click', (e) 
 
 // Modales del Cliente (Carga Saldo)
 document.getElementById('btn-open-recarga').addEventListener('click', () => {
+    document.getElementById('recarga-fecha').value = new Date().toISOString().substring(0, 10);
     document.getElementById('modal-recarga').classList.remove('hidden');
 });
 
@@ -741,42 +874,137 @@ document.getElementById('form-request-ride').addEventListener('submit', async (e
             body: JSON.stringify({ origen, destino, distancia_km })
         });
 
-        // Simulamos un pequeño retraso para la animación
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // 1. Mostrar carrito saltando por 2 segundos
+        await new Promise(resolve => setTimeout(resolve, 2000));
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
 
-        // Llenar datos de éxito en el modal
-        document.getElementById('assigned-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
-        document.getElementById('assigned-driver-phone').textContent = res.chofer.telefono;
-        document.getElementById('assigned-veh-model').textContent = `${res.vehiculo.marca} ${res.vehiculo.modelo}`;
-        document.getElementById('assigned-veh-plate').textContent = res.vehiculo.placa;
-        document.getElementById('assigned-veh-color').textContent = res.vehiculo.color;
-        document.getElementById('assigned-ride-cost').textContent = parseFloat(res.costo_total).toFixed(2);
+        // Llenar datos ocultos del modal-receipt para usarlo al final (Factura digital)
+        document.getElementById('receipt-date').textContent = new Date().toLocaleDateString('es-VE');
+        document.getElementById('receipt-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
+        document.getElementById('receipt-veh-model').textContent = `${res.vehiculo.marca} ${res.vehiculo.modelo}`;
+        document.getElementById('receipt-veh-plate').textContent = res.vehiculo.placa;
+        document.getElementById('receipt-total').textContent = parseFloat(res.costo_total).toFixed(2);
 
-        // Mostrar modal de éxito
-        document.getElementById('modal-ride-success').classList.remove('hidden');
+        // 2. Ocultar el formulario y mostrar el panel de viaje activo
+        document.getElementById('request-ride-card').classList.add('hidden');
+        const activeTripCard = document.getElementById('active-trip-card');
+        activeTripCard.classList.remove('hidden');
         
-        // Resetear formulario
-        document.getElementById('form-request-ride').reset();
-        document.getElementById('ride-fare-est').textContent = '2.50';
+        // Resetear tracker a "Buscando"
+        const steps = ['buscando', 'asignado', 'camino', 'llegada'];
+        steps.forEach(s => {
+            document.getElementById(`icon-${s}`).style.background = 'rgba(255,255,255,0.1)';
+            document.getElementById(`text-${s}`).style.color = 'var(--text-secondary)';
+        });
+        document.getElementById('icon-buscando').style.background = 'var(--primary)';
+        document.getElementById('text-buscando').style.color = 'var(--primary)';
         
-        // Recargar interfaz del cliente
-        loadClienteSaldo();
-        loadClienteViajes();
+        document.getElementById('active-trip-info-box').classList.add('hidden');
+        document.getElementById('btn-finish-trip').classList.add('hidden');
+        document.getElementById('rating-container').classList.add('hidden');
+        
+        // Reset stars
+        document.querySelectorAll('.star-btn').forEach(s => s.style.color = '#555');
+        
+        const msgBox = document.getElementById('active-trip-message');
+        msgBox.textContent = 'Buscando el mejor conductor para ti...';
+
+        // Secuencia de animación de estados
+        setTimeout(() => {
+            // Paso 2: Asignado
+            document.getElementById('icon-asignado').style.background = 'var(--primary)';
+            document.getElementById('text-asignado').style.color = 'var(--primary)';
+            
+            // Mostrar info del chofer
+            document.getElementById('active-driver-name').textContent = `${res.chofer.nombre} ${res.chofer.apellido}`;
+            document.getElementById('active-driver-phone').textContent = res.chofer.telefono;
+            document.getElementById('active-veh-model').textContent = `${res.vehiculo.marca} ${res.vehiculo.modelo}`;
+            document.getElementById('active-veh-plate').textContent = res.vehiculo.placa;
+            document.getElementById('active-veh-color').textContent = res.vehiculo.color;
+            document.getElementById('active-trip-info-box').classList.remove('hidden');
+            msgBox.textContent = '¡Conductor encontrado!';
+            
+            setTimeout(() => {
+                // Paso 3: En camino / Viaje
+                document.getElementById('icon-camino').style.background = 'var(--primary)';
+                document.getElementById('text-camino').style.color = 'var(--primary)';
+                msgBox.textContent = 'El conductor va en camino hacia tu destino...';
+                
+                setTimeout(() => {
+                    // Paso 4: Llegada
+                    document.getElementById('icon-llegada').style.background = 'var(--accent-green)';
+                    document.getElementById('text-llegada').style.color = 'var(--accent-green)';
+                    document.getElementById('icon-llegada').style.borderColor = 'var(--accent-green)';
+                    msgBox.textContent = `¡Has llegado! Total debitado: $${parseFloat(res.costo_total).toFixed(2)}`;
+                    
+                    document.getElementById('rating-container').classList.remove('hidden');
+                    document.getElementById('btn-finish-trip').classList.remove('hidden');
+                    
+                    // Recargar tablas en el fondo
+                    loadClienteSaldo();
+                    loadClienteViajes();
+                }, 4000);
+            }, 3000);
+        }, 2000);
+        
     } catch (err) {
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
         showToast(err.message, 'error');
     }
 });
 
-// Cerrar modal de asignación exitosa
-document.querySelector('.btn-close-success').addEventListener('click', () => {
-    document.getElementById('modal-ride-success').classList.add('hidden');
+// Interactividad de las estrellas
+let selectedRating = 0;
+document.querySelectorAll('.star-btn').forEach(star => {
+    star.addEventListener('mouseover', (e) => {
+        const val = parseInt(e.target.dataset.value);
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.style.color = parseInt(s.dataset.value) <= val ? '#fbbf24' : '#555';
+        });
+    });
+    star.addEventListener('mouseout', () => {
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.style.color = parseInt(s.dataset.value) <= selectedRating ? '#fbbf24' : '#555';
+        });
+    });
+    star.addEventListener('click', (e) => {
+        selectedRating = parseInt(e.target.dataset.value);
+        document.querySelectorAll('.star-btn').forEach(s => {
+            s.style.color = parseInt(s.dataset.value) <= selectedRating ? '#fbbf24' : '#555';
+        });
+    });
+});
+
+// Botón para finalizar el viaje y mostrar recibo
+document.getElementById('btn-finish-trip').addEventListener('click', () => {
+    if (selectedRating === 0) {
+        showToast('Por favor califica a tu conductor primero.', 'warning');
+        return;
+    }
+    // Mostrar modal de Factura (Recibo tipo ticket)
+    document.getElementById('modal-receipt').classList.remove('hidden');
+    selectedRating = 0; // Reset para el próximo
+});
+
+// Cerrar modal de recibo exitoso y volver al mapa
+document.querySelector('.btn-close-receipt').addEventListener('click', () => {
+    document.getElementById('modal-receipt').classList.add('hidden');
+    
+    // Si la tarjeta de viaje activo está visible, significa que acabamos de terminar un viaje nuevo
+    if (!document.getElementById('active-trip-card').classList.contains('hidden')) {
+        // Restaurar UI
+        document.getElementById('active-trip-card').classList.add('hidden');
+        document.getElementById('request-ride-card').classList.remove('hidden');
+        document.getElementById('form-request-ride').reset();
+        document.getElementById('ride-fare-est').textContent = '2.50';
+        showToast('¡Factura guardada! Gracias por viajar con DeCarrerita.', 'success');
+    }
 });
 
 // Formulario: Registrar Recarga
 document.getElementById('form-recarga').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const fecha = document.getElementById('recarga-fecha').value;
     const id_banco = document.getElementById('recarga-banco').value;
     const nro_referencia = document.getElementById('recarga-referencia').value;
     const monto = document.getElementById('recarga-monto').value;
@@ -784,7 +1012,7 @@ document.getElementById('form-recarga').addEventListener('submit', async (e) => 
     try {
         const data = await apiRequest('/clientes/recargas', {
             method: 'POST',
-            body: JSON.stringify({ id_banco, nro_referencia, monto })
+            body: JSON.stringify({ fecha, id_banco, nro_referencia, monto })
         });
 
         showToast(data.message, 'success');
@@ -866,10 +1094,13 @@ async function loadChoferViajes(filters = {}) {
     if (currentChoferTab === 'pagados') endpoint = '/choferes/traslados/pagados';
     if (currentChoferTab === 'pendientes') endpoint = '/choferes/traslados/pendientes';
 
+    const fInicio = filters.fecha_inicio !== undefined ? filters.fecha_inicio : (document.getElementById('chofer-filter-desde')?.value || '');
+    const fFin = filters.fecha_fin !== undefined ? filters.fecha_fin : (document.getElementById('chofer-filter-hasta')?.value || '');
+
     // Construir query string de fechas si aplica
     const params = new URLSearchParams();
-    if (filters.fecha_inicio) params.append('fecha_inicio', filters.fecha_inicio);
-    if (filters.fecha_fin) params.append('fecha_fin', filters.fecha_fin);
+    if (fInicio) params.append('fecha_inicio', fInicio);
+    if (fFin) params.append('fecha_fin', fFin);
     
     const queryString = params.toString();
     const finalEndpoint = queryString ? `${endpoint}?${queryString}` : endpoint;
@@ -932,14 +1163,14 @@ document.getElementById('tab-chofer-viajes-todos').addEventListener('click', () 
 document.getElementById('tab-chofer-viajes-pendientes').addEventListener('click', () => {
     currentChoferTab = 'pendientes';
     setActiveChoferTab('tab-chofer-viajes-pendientes');
-    document.getElementById('chofer-filter-box').classList.add('hidden');
+    document.getElementById('chofer-filter-box').classList.remove('hidden');
     loadChoferViajes();
 });
 
 document.getElementById('tab-chofer-viajes-pagados').addEventListener('click', () => {
     currentChoferTab = 'pagados';
     setActiveChoferTab('tab-chofer-viajes-pagados');
-    document.getElementById('chofer-filter-box').classList.add('hidden');
+    document.getElementById('chofer-filter-box').classList.remove('hidden');
     loadChoferViajes();
 });
 
@@ -990,11 +1221,23 @@ document.getElementById('form-vehiculo').addEventListener('submit', async (e) =>
 // PANEL DE ADMINISTRACIÓN (LÓGICA & EVENTOS)
 // =====================================================================
 function initAdminDashboard() {
+    const bancoCard = document.querySelector('.card-bancos-admin');
+    if (bancoCard) bancoCard.classList.remove('hidden');
+
+    if (currentUser && currentUser.tipo_usuario === 'personal_administrativo') {
+        const gestionTab = document.getElementById('tab-admin-gestion');
+        if (gestionTab) gestionTab.classList.add('hidden');
+    } else {
+        const gestionTab = document.getElementById('tab-admin-gestion');
+        if (gestionTab) gestionTab.classList.remove('hidden');
+    }
     loadAdminSelects();
     loadAdminPendientesPago();
     loadPublicBancos();
-    loadAdminUsuarios();
-    loadAdminVehiculos();
+    if (currentUser && currentUser.tipo_usuario === 'administrador') {
+        loadAdminUsuarios();
+        loadAdminVehiculos();
+    }
 }
 
 // Cargar conductores y vehículos en los selects de calificación y reportes
@@ -1036,7 +1279,7 @@ async function loadChoferesYVehiculos() {
 
         // Select de Reportes por Chofer
         const selRepChofer = document.getElementById('rep-chofer-id');
-        selRepChofer.innerHTML = '<option value="">-- Seleccionar --</option>';
+        selRepChofer.innerHTML = '<option value="todos">-- Todos los Choferes --</option>';
         choferes.forEach(c => {
             selRepChofer.innerHTML += `<option value="${c.id_usuario}">${c.nombre} ${c.apellido} (${c.cedula})</option>`;
         });
@@ -1048,6 +1291,10 @@ async function loadChoferesYVehiculos() {
         vehiculos.forEach(v => {
             selVeh.innerHTML += `<option value="${v.id_vehiculo}">${v.placa} - ${v.marca} ${v.modelo} (${v.chofer_nombre})</option>`;
         });
+
+        // Carga inicial automática de reportes sin filtro de fechas
+        loadReporteGanancias();
+        loadReporteChofer();
 
     } catch (err) {
         console.error('Error al precargar choferes y vehículos:', err.message);
@@ -1085,7 +1332,7 @@ async function loadAdminPendientesPago() {
 
         // Asignar eventos de click a botones de pago
         document.querySelectorAll('.btn-pagar-row').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const id = btn.getAttribute('data-id');
                 const nombre = btn.getAttribute('data-nombre');
                 const monto = btn.getAttribute('data-monto');
@@ -1093,16 +1340,124 @@ async function loadAdminPendientesPago() {
                 document.getElementById('pago-chofer-id').value = id;
                 document.getElementById('pago-chofer-nombre').textContent = nombre;
                 document.getElementById('pago-chofer-monto').textContent = parseFloat(monto).toFixed(2);
+                if (document.getElementById('pago-monto-input')) {
+                    document.getElementById('pago-monto-input').value = parseFloat(monto).toFixed(2);
+                }
                 
                 // Setear fecha actual por defecto
                 document.getElementById('pago-fecha').value = new Date().toISOString().substring(0, 10);
                 
+                // Cargar desglose de viajes pendientes del chofer en la tabla del modal
+                const tbodyViajes = document.getElementById('pago-chofer-viajes-tbody');
+                if (tbodyViajes) {
+                    tbodyViajes.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px;">Cargando traslados...</td></tr>';
+                    try {
+                        const viajes = await apiRequest(`/admin/choferes/${id}/viajes-pendientes`);
+                        tbodyViajes.innerHTML = '';
+                        if (viajes.length === 0) {
+                            tbodyViajes.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px;">No hay traslados pendientes.</td></tr>';
+                        } else {
+                            viajes.forEach(v => {
+                                const fechaStr = new Date(v.fecha).toLocaleDateString();
+                                tbodyViajes.innerHTML += `
+                                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                                        <td style="padding: 4px; color: #e2e8f0;"><strong>${v.origen} → ${v.destino}</strong><br><span style="color: #94a3b8; font-size: 0.75rem;">${fechaStr}</span></td>
+                                        <td style="padding: 4px; text-align: right; color: #e2e8f0;">$${parseFloat(v.costo_total).toFixed(2)}</td>
+                                        <td style="padding: 4px; text-align: right; color: #4ade80; font-weight: 600;">$${parseFloat(v.monto_chofer).toFixed(2)}</td>
+                                        <td style="padding: 4px; text-align: right; color: #60a5fa;">$${parseFloat(v.monto_empresa).toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            });
+                        }
+                    } catch (errViajes) {
+                        tbodyViajes.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Error al cargar traslados.</td></tr>';
+                    }
+                }
+
                 document.getElementById('modal-pagar-chofer').classList.remove('hidden');
             });
         });
 
     } catch (err) {
         showToast('Error al cargar pendientes de pago.', 'error');
+    }
+}
+
+// Cargar y gestionar recargas de saldo de clientes (Panel Admin)
+async function loadAdminRecargas() {
+    const filtro = document.getElementById('admin-recargas-filtro') ? document.getElementById('admin-recargas-filtro').value : 'pendiente';
+    const tbody = document.getElementById('table-admin-recargas-body');
+    if (!tbody) return;
+
+    try {
+        const url = filtro === 'todos' ? '/admin/recargas' : `/admin/recargas?estado=${filtro}`;
+        const recargas = await apiRequest(url);
+        tbody.innerHTML = '';
+
+        if (recargas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No hay recargas ${filtro === 'todos' ? 'registradas' : 'en estado ' + filtro}.</td></tr>`;
+            return;
+        }
+
+        recargas.forEach(r => {
+            const fechaStr = new Date(r.fecha).toLocaleDateString('es-VE', { hour: '2-digit', minute: '2-digit' });
+            let badgeHtml = '';
+            let accionesHtml = '';
+
+            if (r.estado === 'aprobada') {
+                badgeHtml = '<span style="background: rgba(16, 185, 129, 0.15); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(16, 185, 129, 0.3); display: inline-block;"><i class="fa-solid fa-check-circle"></i> Aprobada</span>';
+                accionesHtml = '<span style="color: #64748b; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Procesada</span>';
+            } else if (r.estado === 'rechazada') {
+                badgeHtml = '<span style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(244, 63, 94, 0.3); display: inline-block;"><i class="fa-solid fa-times-circle"></i> Rechazada</span>';
+                accionesHtml = '<span style="color: #64748b; font-size: 0.8rem;"><i class="fa-solid fa-ban"></i> Descartada</span>';
+            } else {
+                badgeHtml = '<span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; border: 1px solid rgba(245, 158, 11, 0.3); display: inline-block;"><i class="fa-solid fa-clock"></i> Pendiente</span>';
+                accionesHtml = `
+                    <button class="btn btn-sm btn-action-recarga" data-id="${r.id_recarga}" data-estado="aprobada" style="background: #10b981; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; margin-right: 4px; cursor: pointer;">
+                        <i class="fa-solid fa-check"></i> Aceptar
+                    </button>
+                    <button class="btn btn-sm btn-action-recarga" data-id="${r.id_recarga}" data-estado="rechazada" style="background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer;">
+                        <i class="fa-solid fa-times"></i> Rechazar
+                    </button>
+                `;
+            }
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="white-space: nowrap;">${fechaStr}</td>
+                    <td><strong>${r.cliente_nombre} ${r.cliente_apellido}</strong></td>
+                    <td>${r.banco_origen}</td>
+                    <td><code style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${r.nro_referencia}</code></td>
+                    <td class="font-bold color-green">+$${parseFloat(r.monto).toFixed(2)}</td>
+                    <td>${badgeHtml}</td>
+                    <td style="text-align: right; white-space: nowrap;">${accionesHtml}</td>
+                </tr>
+            `;
+        });
+
+        document.querySelectorAll('.btn-action-recarga').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const idRecarga = btn.getAttribute('data-id');
+                const estado = btn.getAttribute('data-estado');
+                const actionText = estado === 'aprobada' ? 'aceptar y acreditar saldo en' : 'rechazar';
+                if (!confirm(`¿Estás seguro de ${actionText} esta recarga?`)) return;
+
+                btn.disabled = true;
+                try {
+                    const res = await apiRequest(`/admin/recargas/${idRecarga}/estado`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ estado })
+                    });
+                    showToast(res.message || 'Recarga procesada exitosamente.', 'success');
+                    loadAdminRecargas();
+                } catch (err) {
+                    showToast(err.message || 'Error al procesar la recarga.', 'error');
+                    btn.disabled = false;
+                }
+            });
+        });
+    } catch (err) {
+        showToast('Error al cargar recargas administrativas.', 'error');
     }
 }
 
@@ -1122,35 +1477,91 @@ document.getElementById('mini-tab-vehiculo').addEventListener('click', () => {
 });
 
 // Tabs Panel Admin
+function switchAdminTab(activeTabId, activePanelId) {
+    ['tab-admin-pagos', 'tab-admin-recargas', 'tab-admin-reportes', 'tab-admin-gestion', 'tab-admin-evaluaciones'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', id === activeTabId);
+    });
+    ['panel-admin-pagos', 'panel-admin-recargas', 'panel-admin-reportes', 'panel-admin-gestion', 'panel-admin-evaluaciones'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', id !== activePanelId);
+    });
+}
+
 document.getElementById('tab-admin-pagos').addEventListener('click', () => {
-    document.getElementById('tab-admin-pagos').classList.add('active');
-    document.getElementById('tab-admin-reportes').classList.remove('active');
-    document.getElementById('tab-admin-gestion').classList.remove('active');
-    document.getElementById('panel-admin-pagos').classList.remove('hidden');
-    document.getElementById('panel-admin-reportes').classList.add('hidden');
-    document.getElementById('panel-admin-gestion').classList.add('hidden');
+    switchAdminTab('tab-admin-pagos', 'panel-admin-pagos');
 });
 
+if (document.getElementById('tab-admin-recargas')) {
+    document.getElementById('tab-admin-recargas').addEventListener('click', () => {
+        switchAdminTab('tab-admin-recargas', 'panel-admin-recargas');
+        loadAdminRecargas();
+    });
+    document.getElementById('admin-recargas-filtro').addEventListener('change', () => {
+        loadAdminRecargas();
+    });
+}
+
 document.getElementById('tab-admin-reportes').addEventListener('click', () => {
-    document.getElementById('tab-admin-reportes').classList.add('active');
-    document.getElementById('tab-admin-pagos').classList.remove('active');
-    document.getElementById('tab-admin-gestion').classList.remove('active');
-    document.getElementById('panel-admin-reportes').classList.remove('hidden');
-    document.getElementById('panel-admin-pagos').classList.add('hidden');
-    document.getElementById('panel-admin-gestion').classList.add('hidden');
+    switchAdminTab('tab-admin-reportes', 'panel-admin-reportes');
     loadChoferesYVehiculos(); // Precargar listas de selects para reportes
 });
 
 document.getElementById('tab-admin-gestion').addEventListener('click', () => {
-    document.getElementById('tab-admin-gestion').classList.add('active');
-    document.getElementById('tab-admin-pagos').classList.remove('active');
-    document.getElementById('tab-admin-reportes').classList.remove('active');
-    document.getElementById('panel-admin-gestion').classList.remove('hidden');
-    document.getElementById('panel-admin-pagos').classList.add('hidden');
-    document.getElementById('panel-admin-reportes').classList.add('hidden');
+    switchAdminTab('tab-admin-gestion', 'panel-admin-gestion');
     loadAdminUsuarios();
     loadAdminVehiculos();
 });
+
+if (document.getElementById('tab-admin-evaluaciones')) {
+    document.getElementById('tab-admin-evaluaciones').addEventListener('click', () => {
+        switchAdminTab('tab-admin-evaluaciones', 'panel-admin-evaluaciones');
+        loadAdminEvaluaciones();
+    });
+}
+
+async function loadAdminEvaluaciones() {
+    try {
+        const [psico, meca] = await Promise.all([
+            apiRequest('/admin/evaluaciones/choferes'),
+            apiRequest('/admin/evaluaciones/vehiculos')
+        ]);
+
+        const tbodyPsico = document.getElementById('table-admin-psico-body');
+        if (!psico || psico.length === 0) {
+            tbodyPsico.innerHTML = '<tr><td colspan="6" class="text-center">No hay evaluaciones registradas.</td></tr>';
+        } else {
+            tbodyPsico.innerHTML = psico.map(e => `
+                <tr>
+                    <td>${new Date(e.fecha_evaluacion).toLocaleDateString()}</td>
+                    <td><div class="font-bold">${e.chofer_nombre} ${e.chofer_apellido}</div></td>
+                    <td>${e.cedula}</td>
+                    <td><span class="badge ${e.nota >= 73 ? 'badge-success' : 'badge-danger'}">${e.nota} / 100</span></td>
+                    <td><span class="badge ${e.aprobado ? 'badge-success' : 'badge-danger'}">${e.aprobado ? 'Aprobado' : 'Reprobado'}</span></td>
+                    <td>${e.admin_nombre} ${e.admin_apellido}</td>
+                </tr>
+            `).join('');
+        }
+
+        const tbodyMeca = document.getElementById('table-admin-mecanica-body');
+        if (!meca || meca.length === 0) {
+            tbodyMeca.innerHTML = '<tr><td colspan="6" class="text-center">No hay revisiones registradas.</td></tr>';
+        } else {
+            tbodyMeca.innerHTML = meca.map(r => `
+                <tr>
+                    <td>${new Date(r.fecha_evaluacion).toLocaleDateString()}</td>
+                    <td><div class="font-bold">${r.placa}</div><div class="text-sm">${r.marca} ${r.modelo}</div></td>
+                    <td>${r.chofer_nombre} ${r.chofer_apellido}</td>
+                    <td><span class="badge ${r.nota >= 65 ? 'badge-success' : 'badge-danger'}">${r.nota} / 100</span></td>
+                    <td><span class="badge ${r.aprobado ? 'badge-success' : 'badge-danger'}">${r.aprobado ? 'Apto' : 'No Apto'}</span></td>
+                    <td>${r.admin_nombre} ${r.admin_apellido}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (err) {
+        showToast('Error al cargar historial de evaluaciones.', 'error');
+    }
+}
 
 // Formulario: Guardar Nota Psicológica
 document.getElementById('form-eval-psicologia').addEventListener('submit', async (e) => {
@@ -1214,13 +1625,14 @@ document.getElementById('form-pagar-chofer').addEventListener('submit', async (e
     const id_chofer = document.getElementById('pago-chofer-id').value;
     const fecha_pago = document.getElementById('pago-fecha').value;
     const nro_referencia = document.getElementById('pago-referencia').value;
+    const monto = parseFloat(document.getElementById('pago-monto-input')?.value || document.getElementById('pago-chofer-monto')?.textContent);
 
     const loadingOverlay = document.getElementById('liquidation-loading-overlay');
     try {
         if (loadingOverlay) loadingOverlay.classList.remove('hidden');
         const res = await apiRequest('/admin/pagos', {
             method: 'POST',
-            body: JSON.stringify({ id_chofer, fecha_pago, nro_referencia })
+            body: JSON.stringify({ id_chofer, fecha_pago, nro_referencia, monto })
         });
 
         // Retraso para ver la animacion
@@ -1238,41 +1650,45 @@ document.getElementById('form-pagar-chofer').addEventListener('submit', async (e
     }
 });
 
-// Reporte 1: Ganancias de la Empresa
-document.getElementById('btn-rep-ganancias').addEventListener('click', async () => {
+// Reporte 1: Ganancias de la Empresa (Con filtros opcionales)
+async function loadReporteGanancias() {
     const fecha_inicio = document.getElementById('rep-ganancias-desde').value;
     const fecha_fin = document.getElementById('rep-ganancias-hasta').value;
 
-    if (!fecha_inicio || !fecha_fin) {
-        showToast('Debe ingresar ambas fechas.', 'error');
-        return;
-    }
-
     try {
-        const res = await apiRequest(`/admin/reportes/ganancias?fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`);
+        let url = '/admin/reportes/ganancias';
+        const params = new URLSearchParams();
+        if (fecha_inicio) params.append('fecha_inicio', fecha_inicio);
+        if (fecha_fin) params.append('fecha_fin', fecha_fin);
+        
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+
+        const res = await apiRequest(url);
         
         document.getElementById('val-rep-ganancias').textContent = `$${parseFloat(res.ganancias_totales).toFixed(2)}`;
         document.getElementById('val-rep-ganancias-viajes').textContent = res.total_viajes;
-        
         document.getElementById('res-rep-ganancias').classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');
     }
-});
+}
 
-// Reporte 2: Liquidaciones a un Chofer específico
-document.getElementById('btn-rep-chofer').addEventListener('click', async () => {
-    const id_chofer = document.getElementById('rep-chofer-id').value;
+// Reporte 2: Liquidaciones a un Chofer específico o Todos (Con filtros opcionales)
+async function loadReporteChofer() {
+    const id_chofer = document.getElementById('rep-chofer-id').value || 'todos';
     const fecha_inicio = document.getElementById('rep-chofer-desde').value;
     const fecha_fin = document.getElementById('rep-chofer-hasta').value;
 
-    if (!id_chofer || !fecha_inicio || !fecha_fin) {
-        showToast('Faltan parámetros para generar el reporte.', 'error');
-        return;
-    }
-
     try {
-        const res = await apiRequest(`/admin/reportes/pagos-chofer?id_chofer=${id_chofer}&fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`);
+        let url = `/admin/reportes/pagos-chofer`;
+        const params = new URLSearchParams();
+        params.append('id_chofer', id_chofer);
+        if (fecha_inicio) params.append('fecha_inicio', fecha_inicio);
+        if (fecha_fin) params.append('fecha_fin', fecha_fin);
+
+        url += `?${params.toString()}`;
+        const res = await apiRequest(url);
         
         document.getElementById('val-rep-chofer').textContent = `$${parseFloat(res.total_cancelado).toFixed(2)}`;
         
@@ -1280,13 +1696,49 @@ document.getElementById('btn-rep-chofer').addEventListener('click', async () => 
         listContainer.innerHTML = '';
         
         if (res.historial_pagos.length === 0) {
-            listContainer.innerHTML = '<li class="text-secondary text-center">No hay registros de liquidaciones en este rango de fechas.</li>';
+            listContainer.innerHTML = '<li class="text-secondary text-center">No hay registros de liquidaciones.</li>';
         } else {
             res.historial_pagos.forEach(p => {
+                let viajesHtml = '';
+                if (p.viajes && p.viajes.length > 0) {
+                    viajesHtml = `
+                        <div style="margin-top: 10px; padding: 8px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.85rem; width: 100%;">
+                            <strong style="color: #cbd5e1; display: block; margin-bottom: 6px; font-weight: 600;">Desglose de traslados liquidados (${p.viajes.length}):</strong>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; text-align: left;">
+                                        <th style="padding: 4px 0;">Ruta / Fecha</th>
+                                        <th style="text-align: right; padding: 4px 0;">Total</th>
+                                        <th style="text-align: right; color: #4ade80; padding: 4px 0;">Chofer (70%)</th>
+                                        <th style="text-align: right; color: #60a5fa; padding: 4px 0;">Empresa (30%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    p.viajes.forEach(v => {
+                        viajesHtml += `
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                                <td style="padding: 6px 0; color: #e2e8f0;">${v.origen} → ${v.destino} <span style="color:#64748b; font-size: 0.78rem;">(${new Date(v.fecha).toLocaleDateString()})</span></td>
+                                <td style="text-align: right; padding: 6px 0; color: #e2e8f0;">$${parseFloat(v.costo_total).toFixed(2)}</td>
+                                <td style="text-align: right; color: #4ade80; font-weight: 600; padding: 6px 0;">$${parseFloat(v.monto_chofer).toFixed(2)}</td>
+                                <td style="text-align: right; color: #60a5fa; padding: 6px 0;">$${parseFloat(v.monto_empresa).toFixed(2)}</td>
+                            </tr>
+                        `;
+                    });
+                    viajesHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
                 listContainer.innerHTML += `
-                    <li>
-                        <span>Ref: <code>${p.nro_referencia}</code> - ${new Date(p.fecha_pago).toLocaleDateString()}</span>
-                        <strong class="text-green">$${parseFloat(p.monto_pagado).toFixed(2)}</strong>
+                    <li style="flex-direction: column; align-items: flex-start; padding: 14px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                            <span style="color: #cbd5e1;"><strong style="color: #f8fafc; font-size: 1.05rem;">${p.nombre} ${p.apellido}</strong> | Ref: <code style="background: rgba(255, 255, 255, 0.1); color: #38bdf8; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); font-family: monospace;">${p.nro_referencia}</code> - ${new Date(p.fecha_pago).toLocaleDateString()}</span>
+                            <strong class="text-green" style="font-size: 1.15rem;">$${parseFloat(p.monto_pagado).toFixed(2)}</strong>
+                        </div>
+                        ${viajesHtml}
                     </li>
                 `;
             });
@@ -1296,7 +1748,11 @@ document.getElementById('btn-rep-chofer').addEventListener('click', async () => 
     } catch (err) {
         showToast(err.message, 'error');
     }
-});
+}
+
+document.getElementById('btn-rep-ganancias').addEventListener('click', loadReporteGanancias);
+document.getElementById('btn-rep-chofer').addEventListener('click', loadReporteChofer);
+document.getElementById('rep-chofer-id').addEventListener('change', loadReporteChofer);
 
 
 // =====================================================================
@@ -1322,7 +1778,7 @@ async function loadAdminUsuarios() {
                     <td>Chofer</td>
                     <td><span class="status-badge badge-success">Activo</span></td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="window.toggleUsuarioEstado(${u.id_usuario}, true)">
+                        <button class="btn btn-danger btn-sm" onclick="window.confirmToggle(${u.id_usuario}, true, '${u.nombre} ${u.apellido}', 'usuario')">
                             Desactivar
                         </button>
                     </td>
@@ -1334,18 +1790,45 @@ async function loadAdminUsuarios() {
     }
 }
 
-window.toggleUsuarioEstado = async function(id, currentState) {
+window.confirmToggle = function(id, currentState, name, type) {
+    document.getElementById('confirm-toggle-id').value = id;
+    document.getElementById('confirm-toggle-state').value = currentState;
+    document.getElementById('confirm-toggle-message').textContent = currentState 
+        ? '¿Estás seguro que deseas DESACTIVAR a este ' + type + '?' 
+        : '¿Estás seguro que deseas REACTIVAR a este ' + type + '?';
+    document.getElementById('confirm-toggle-name').textContent = name;
+    
+    // Store type in a dataset for the confirm button
+    document.getElementById('btn-confirm-toggle').dataset.type = type;
+    
+    document.getElementById('modal-confirm-toggle').classList.remove('hidden');
+};
+
+document.getElementById('btn-confirm-toggle').addEventListener('click', async () => {
+    const id = document.getElementById('confirm-toggle-id').value;
+    const currentState = document.getElementById('confirm-toggle-state').value === 'true';
+    const type = document.getElementById('btn-confirm-toggle').dataset.type;
+    
     try {
-        const res = await apiRequest(`/admin/usuarios/${id}/estado`, {
+        const endpoint = type === 'usuario' 
+            ? `/admin/usuarios/${id}/estado` 
+            : `/admin/vehiculos/${id}/estado`;
+            
+        const res = await apiRequest(endpoint, {
             method: 'PUT',
             body: JSON.stringify({ activo: !currentState })
         });
+        
         showToast(res.message || 'Estado actualizado', 'success');
-        loadAdminUsuarios();
+        document.getElementById('modal-confirm-toggle').classList.add('hidden');
+        
+        if (type === 'usuario') loadAdminUsuarios();
+        else loadAdminVehiculos();
+        
     } catch (err) {
         showToast(err.message, 'error');
     }
-};
+});
 
 async function loadAdminVehiculos() {
     try {
@@ -1366,7 +1849,7 @@ async function loadAdminVehiculos() {
                     <td>${v.chofer_nombre}</td>
                     <td><span class="status-badge badge-success">Activo</span></td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="window.toggleVehiculoEstado(${v.id_vehiculo}, true)">
+                        <button class="btn btn-danger btn-sm" onclick="window.confirmToggle(${v.id_vehiculo}, true, '${v.placa} (${v.marca})', 'vehiculo')">
                             Desactivar
                         </button>
                     </td>
@@ -1377,19 +1860,6 @@ async function loadAdminVehiculos() {
         showToast('Error al cargar vehículos.', 'error');
     }
 }
-
-window.toggleVehiculoEstado = async function(id, currentState) {
-    try {
-        const res = await apiRequest(`/admin/vehiculos/${id}/estado`, {
-            method: 'PUT',
-            body: JSON.stringify({ activo: !currentState })
-        });
-        showToast(res.message || 'Estado actualizado', 'success');
-        loadAdminVehiculos();
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
-};
 
 // =====================================================================
 // CONFIGURACIÓN GLOBAL DE MODALES (CERRAR EN CLIC DE BORDES O BOTÓN X)

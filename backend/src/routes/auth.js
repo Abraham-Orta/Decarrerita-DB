@@ -4,8 +4,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { authenticateToken } = require('../middlewares/auth');
+const { sendWelcomeEmail, sendLoginNotification, sendOtpEmail, sendPasswordResetEmail } = require('../services/mailService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'decarrerita_secreto_super_seguro_123';
+
+function generateCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 // 0. Obtener Bancos (Público, para registro y recargas)
 router.get('/bancos', async (req, res) => {
@@ -45,9 +50,9 @@ router.post('/register', async (req, res) => {
 
     // Insertar en la tabla base de usuarios
     const [userResult] = await connection.query(
-      `INSERT INTO usuarios (email, password, nombre, apellido, telefono, cedula, tipo_usuario) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [email, hashedPassword, nombre, apellido, telefono, cedula, tipo_usuario]
+      `INSERT INTO usuarios (email, password, nombre, apellido, telefono, cedula, tipo_usuario, activo) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [email, hashedPassword, nombre, apellido, telefono, cedula, tipo_usuario, false]
     );
 
     const id_usuario = userResult.insertId;
@@ -88,7 +93,25 @@ router.post('/register', async (req, res) => {
 
     // Confirmar transacción
     await connection.commit();
-    res.status(201).json({ message: 'Usuario registrado exitosamente.', id_usuario });
+
+    // Enviar correo de bienvenida (fire-and-forget)
+    sendWelcomeEmail(email, nombre).catch((err) =>
+      console.error('⚠️ Error al enviar correo de bienvenida:', err.message)
+    );
+
+    // Generar OTP y guardarlo
+    const code = generateCode();
+    await connection.query(
+      `INSERT INTO codigos_verificacion (id_usuario, codigo, tipo, expira_en) 
+       VALUES (?, ?, 'otp', DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
+      [id_usuario, code]
+    );
+
+    sendOtpEmail(email, nombre, code).catch((err) =>
+      console.error('⚠️ Error al enviar correo OTP:', err.message)
+    );
+
+    res.status(201).json({ message: 'Usuario registrado. Verifica tu correo electrónico.', id_usuario, requiresVerification: true });
   } catch (error) {
     // Revertir cambios en caso de error
     await connection.rollback();
@@ -132,6 +155,11 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // Enviar notificación de inicio de sesión (fire-and-forget)
+    sendLoginNotification(user.email, user.nombre).catch((err) =>
+      console.error('⚠️ Error al enviar correo de inicio de sesión:', err.message)
+    );
+
     res.json({
       message: 'Inicio de sesión exitoso.',
       token,
@@ -148,7 +176,106 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 3. Obtener Datos del Perfil (Me)
+// 3. Verificar OTP
+router.post('/verify-otp', async (req, res) => {
+  const { email, code } = req.body;
+  try {
+    const [users] = await pool.query('SELECT id_usuario, activo FROM usuarios WHERE email = ?', [email]);
+    if (users.length === 0) return res.status(400).json({ error: 'Usuario no encontrado' });
+    const user = users[0];
+
+    const [codes] = await pool.query(
+      `SELECT id FROM codigos_verificacion 
+       WHERE id_usuario = ? AND tipo = 'otp' AND codigo = ? AND usado = FALSE AND expira_en > NOW()`,
+      [user.id_usuario, code]
+    );
+
+    if (codes.length === 0) {
+      return res.status(400).json({ error: 'Código inválido o expirado' });
+    }
+
+    await pool.query('UPDATE usuarios SET activo = TRUE WHERE id_usuario = ?', [user.id_usuario]);
+    await pool.query('UPDATE codigos_verificacion SET usado = TRUE WHERE id = ?', [codes[0].id]);
+
+    res.json({ message: 'Cuenta verificada exitosamente' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// 4. Reenviar OTP
+router.post('/resend-otp', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const [users] = await pool.query('SELECT id_usuario, activo, nombre FROM usuarios WHERE email = ?', [email]);
+    if (users.length === 0 || users[0].activo) {
+      return res.status(400).json({ error: 'Usuario no válido o ya verificado' });
+    }
+    const user = users[0];
+    const code = generateCode();
+    await pool.query(
+      `INSERT INTO codigos_verificacion (id_usuario, codigo, tipo, expira_en) 
+       VALUES (?, ?, 'otp', DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
+      [user.id_usuario, code]
+    );
+    sendOtpEmail(email, user.nombre, code).catch(err => console.error('Error al enviar OTP:', err.message));
+    res.json({ message: 'OTP reenviado' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// 5. Olvidé mi contraseña
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const [users] = await pool.query('SELECT id_usuario, nombre FROM usuarios WHERE email = ?', [email]);
+    if (users.length > 0) {
+      const code = generateCode();
+      await pool.query(
+        `INSERT INTO codigos_verificacion (id_usuario, codigo, tipo, expira_en) 
+         VALUES (?, ?, 'reset', DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
+        [users[0].id_usuario, code]
+      );
+      sendPasswordResetEmail(email, users[0].nombre, code).catch(err => console.error('Error reset email:', err.message));
+    }
+    res.json({ message: 'Si el correo existe, se ha enviado un código de recuperación.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// 6. Restablecer contraseña
+router.post('/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  try {
+    const [users] = await pool.query('SELECT id_usuario FROM usuarios WHERE email = ?', [email]);
+    if (users.length === 0) return res.status(400).json({ error: 'Datos inválidos' });
+    const user = users[0];
+
+    const [codes] = await pool.query(
+      `SELECT id FROM codigos_verificacion 
+       WHERE id_usuario = ? AND tipo = 'reset' AND codigo = ? AND usado = FALSE AND expira_en > NOW()`,
+      [user.id_usuario, code]
+    );
+
+    if (codes.length === 0) {
+      return res.status(400).json({ error: 'Código inválido o expirado' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await pool.query('UPDATE usuarios SET password = ? WHERE id_usuario = ?', [hashedPassword, user.id_usuario]);
+    await pool.query('UPDATE codigos_verificacion SET usado = TRUE WHERE id = ?', [codes[0].id]);
+
+    res.json({ message: 'Contraseña restablecida exitosamente' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// 7. Obtener Datos del Perfil (Me)
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const { id_usuario, tipo_usuario } = req.user;
