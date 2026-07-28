@@ -40,13 +40,16 @@
                     <span class="brand-name">De<span class="highlight">carrerita</span></span>
                 </div>
                 <div class="user-status-bar">
-                    <div class="user-badge">
+                    <div class="user-badge" id="btn-open-profile-badge" style="cursor: pointer;" title="Ver Mi Perfil">
                         <i class="fa-solid fa-circle-user avatar-icon"></i>
                         <div class="user-info-text">
                             <span id="nav-user-name" class="user-name">Usuario</span>
                             <span id="nav-user-role" class="user-role">Rol</span>
                         </div>
                     </div>
+                    <button id="btn-profile" class="btn btn-icon-only" title="Mi Perfil">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </button>
                     <button id="btn-logout" class="btn btn-icon-only" title="Cerrar sesión">
                         <i class="fa-solid fa-right-from-bracket"></i>
                     </button>
@@ -1087,6 +1090,142 @@
             </div>
 
         </main>
+
+        <!-- Modal de Perfil de Usuario y Cambio de Contraseña (Global) -->
+        <div id="modal-profile" class="modal hidden">
+            <div class="modal-card modal-lg">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-id-card highlight"></i> Mi Perfil y Cuenta</h2>
+                    <button class="btn-close-modal btn-close-profile"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <!-- Pestañas internas del perfil estilo Segmented Control -->
+                <div class="section-tabs profile-segmented-tabs">
+                    <button id="tab-profile-data" class="sect-tab active"><i class="fa-solid fa-user-gear"></i> Datos Personales</button>
+                    <button id="tab-profile-password" class="sect-tab"><i class="fa-solid fa-shield-halved"></i> Cambiar Contraseña</button>
+                </div>
+
+                <!-- Panel 1: Datos Personales -->
+                <div id="panel-profile-data">
+                    <form id="form-update-profile" class="app-form">
+                        
+                        <!-- Bloque 1: Datos de solo lectura -->
+                        <div class="profile-section-card profile-readonly-card">
+                            <div class="profile-section-header">
+                                <i class="fa-solid fa-lock text-indigo"></i>
+                                <span>Información de Registro (Fija)</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>Cédula de Identidad</label>
+                                    <input type="text" id="prof-cedula" readonly disabled>
+                                </div>
+                                <div class="input-group">
+                                    <label>Correo Electrónico</label>
+                                    <input type="email" id="prof-email" readonly disabled>
+                                </div>
+                                <div class="input-group">
+                                    <label>Tipo de Usuario</label>
+                                    <input type="text" id="prof-tipo" readonly disabled style="text-transform: capitalize;">
+                                </div>
+                                <div class="input-group">
+                                    <label>Fecha de Registro</label>
+                                    <input type="text" id="prof-fecha-registro" readonly disabled>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bloque 2: Campos Editables -->
+                        <div class="profile-section-card profile-editable-card">
+                            <div class="profile-section-header header-primary">
+                                <i class="fa-solid fa-user-pen"></i>
+                                <span>Editar Datos de Contacto</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label for="prof-nombre">Nombre</label>
+                                    <input type="text" id="prof-nombre" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-apellido">Apellido</label>
+                                    <input type="text" id="prof-apellido" required>
+                                </div>
+                                <div class="input-group col-span-2">
+                                    <label for="prof-telefono">Teléfono de Contacto</label>
+                                    <input type="text" id="prof-telefono" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bloque 3: Campos Exclusivos para Chofer -->
+                        <div id="prof-chofer-fields" class="profile-section-card profile-bank-card hidden">
+                            <div class="profile-section-header header-emerald">
+                                <i class="fa-solid fa-building-columns"></i>
+                                <span>Datos Bancarios (Cobro de Ganancias)</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label for="prof-banco">Banco de Destino</label>
+                                    <div class="select-wrapper">
+                                        <select id="prof-banco">
+                                            <option value="">-- Seleccionar Banco --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-nro-cuenta">Número de Cuenta</label>
+                                    <input type="text" id="prof-nro-cuenta" placeholder="01020000000000000000">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top: 1.25rem;">
+                            <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Panel 2: Cambiar Contraseña -->
+                <div id="panel-profile-password" class="hidden">
+                    <form id="form-change-password" class="app-form">
+                        <div class="profile-section-card profile-password-card">
+                            <div class="profile-section-header header-purple">
+                                <i class="fa-solid fa-key"></i>
+                                <span>Actualización de Clave de Acceso</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="input-group col-span-2">
+                                    <label for="prof-current-password">Contraseña Actual</label>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-lock input-icon"></i>
+                                        <input type="password" id="prof-current-password" required placeholder="••••••••">
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-new-password">Nueva Contraseña</label>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-key input-icon"></i>
+                                        <input type="password" id="prof-new-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label for="prof-confirm-password">Confirmar Nueva Contraseña</label>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-check-double input-icon"></i>
+                                        <input type="password" id="prof-confirm-password" required minlength="6" placeholder="Repite la nueva contraseña">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top: 1.25rem;">
+                            <i class="fa-solid fa-shield-halved"></i> Actualizar Contraseña
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
 
     </div>
 

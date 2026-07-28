@@ -302,7 +302,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     // Si es chofer, obtener su banco, número de cuenta y contactos
     if (tipo_usuario === 'chofer') {
       const [choferRows] = await pool.query(
-        `SELECT c.nro_cuenta, b.nombre AS banco 
+        `SELECT c.id_banco, c.nro_cuenta, b.nombre AS banco 
          FROM choferes c 
          JOIN bancos b ON c.id_banco = b.id_banco 
          WHERE c.id_usuario = ?`,
@@ -310,6 +310,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       );
       
       if (choferRows.length > 0) {
+        userData.id_banco = choferRows[0].id_banco;
         userData.nro_cuenta = choferRows[0].nro_cuenta;
         userData.banco = choferRows[0].banco;
       }
@@ -328,4 +329,94 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// 8. Actualizar Perfil de Usuario
+router.put('/profile', authenticateToken, async (req, res) => {
+  const { id_usuario, tipo_usuario } = req.user;
+  const { nombre, apellido, telefono, id_banco, nro_cuenta } = req.body;
+
+  if (!nombre || !apellido || !telefono) {
+    return res.status(400).json({ error: 'Nombre, apellido y teléfono son obligatorios.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Actualizar datos básicos de usuario
+    await connection.query(
+      `UPDATE usuarios SET nombre = ?, apellido = ?, telefono = ? WHERE id_usuario = ?`,
+      [nombre, apellido, telefono, id_usuario]
+    );
+
+    // Si es chofer, actualizar datos bancarios si fueron enviados
+    if (tipo_usuario === 'chofer' && (id_banco || nro_cuenta)) {
+      if (id_banco && nro_cuenta) {
+        await connection.query(
+          `UPDATE choferes SET id_banco = ?, nro_cuenta = ? WHERE id_usuario = ?`,
+          [id_banco, nro_cuenta, id_usuario]
+        );
+      } else if (id_banco) {
+        await connection.query(
+          `UPDATE choferes SET id_banco = ? WHERE id_usuario = ?`,
+          [id_banco, id_usuario]
+        );
+      } else if (nro_cuenta) {
+        await connection.query(
+          `UPDATE choferes SET nro_cuenta = ? WHERE id_usuario = ?`,
+          [nro_cuenta, id_usuario]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ message: 'Perfil actualizado exitosamente.' });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: 'Error al actualizar el perfil.' });
+  } finally {
+    connection.release();
+  }
+});
+
+// 9. Cambiar Contraseña desde el Perfil
+router.put('/change-password', authenticateToken, async (req, res) => {
+  const { id_usuario } = req.user;
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: 'Debe ingresar la contraseña actual y la nueva contraseña.' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'La nueva contraseña y su confirmación no coinciden.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  try {
+    // Obtener contraseña cifrada actual
+    const [rows] = await pool.query('SELECT password FROM usuarios WHERE id_usuario = ?', [id_usuario]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, rows[0].password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'La contraseña actual es incorrecta.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await pool.query('UPDATE usuarios SET password = ? WHERE id_usuario = ?', [hashedPassword, id_usuario]);
+
+    res.json({ message: 'Contraseña actualizada exitosamente.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al cambiar la contraseña.' });
+  }
+});
+
 module.exports = router;
+
