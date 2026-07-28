@@ -3,15 +3,15 @@ require('dotenv').config();
 
 // Crear un pool de conexiones a la base de datos
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || '127.0.0.1',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'decarrerita_db',
+  host: '127.0.0.1',
+  port: 3307,
+  user: 'root',
+  password: 'josi13',
+  database: 'decarrerita_db',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
-
 // Función de prueba de conexión rápida
 async function testConnection() {
   try {
