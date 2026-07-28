@@ -1317,7 +1317,7 @@ async function loadAdminPendientesPago() {
             tbody.innerHTML += `
                 <tr>
                     <td><strong>${p.nombre} ${p.apellido}</strong></td>
-                    <td class="font-bold text-green">$${parseFloat(p.saldo_pendiente).toFixed(2)}</td>
+                    <td style="font-weight: 700; color: var(--accent-green);">$${parseFloat(p.saldo_pendiente).toFixed(2)}</td>
                     <td>
                         <button class="btn btn-primary btn-sm btn-pagar-row" 
                                 data-id="${p.id_chofer}" 
@@ -1361,10 +1361,13 @@ async function loadAdminPendientesPago() {
                                 const fechaStr = new Date(v.fecha).toLocaleDateString();
                                 tbodyViajes.innerHTML += `
                                     <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-                                        <td style="padding: 4px; color: #e2e8f0;"><strong>${v.origen} → ${v.destino}</strong><br><span style="color: #94a3b8; font-size: 0.75rem;">${fechaStr}</span></td>
-                                        <td style="padding: 4px; text-align: right; color: #e2e8f0;">$${parseFloat(v.costo_total).toFixed(2)}</td>
-                                        <td style="padding: 4px; text-align: right; color: #4ade80; font-weight: 600;">$${parseFloat(v.monto_chofer).toFixed(2)}</td>
-                                        <td style="padding: 4px; text-align: right; color: #60a5fa;">$${parseFloat(v.monto_empresa).toFixed(2)}</td>
+                                        <td style="padding: 8px 4px; color: #e2e8f0; vertical-align: middle; font-size: 0.85rem; line-height: 1.3;">
+                                            <strong>${v.origen}</strong> <i class="fa-solid fa-arrow-right" style="color: #64748b; font-size: 0.7rem; margin: 0 4px;"></i> <strong>${v.destino}</strong><br>
+                                            <span style="color: #94a3b8; font-size: 0.75rem;">${fechaStr}</span>
+                                        </td>
+                                        <td style="padding: 8px 4px; text-align: right; color: #e2e8f0; vertical-align: middle;">$${parseFloat(v.costo_total).toFixed(2)}</td>
+                                        <td style="padding: 8px 4px; text-align: right; color: var(--accent-green); font-weight: 600; vertical-align: middle;">$${parseFloat(v.monto_chofer).toFixed(2)}</td>
+                                        <td style="padding: 8px 4px; text-align: right; color: #60a5fa; vertical-align: middle;">$${parseFloat(v.monto_empresa).toFixed(2)}</td>
                                     </tr>
                                 `;
                             });
@@ -1428,7 +1431,7 @@ async function loadAdminRecargas() {
                     <td><strong>${r.cliente_nombre} ${r.cliente_apellido}</strong></td>
                     <td>${r.banco_origen}</td>
                     <td><code style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${r.nro_referencia}</code></td>
-                    <td class="font-bold color-green">+$${parseFloat(r.monto).toFixed(2)}</td>
+                    <td style="font-weight: 700; color: var(--accent-green);">+$${parseFloat(r.monto).toFixed(2)}</td>
                     <td>${badgeHtml}</td>
                     <td style="text-align: right; white-space: nowrap;">${accionesHtml}</td>
                 </tr>

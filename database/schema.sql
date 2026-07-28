@@ -44,6 +44,19 @@ CREATE TABLE usuarios (
     CONSTRAINT uq_usuario_cedula UNIQUE (cedula)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 2.5 Tabla de Códigos de Verificación (OTP y Recuperación)
+CREATE TABLE codigos_verificacion (
+    id INT AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    codigo VARCHAR(10) NOT NULL,
+    tipo ENUM('otp', 'password_reset') NOT NULL,
+    expira_en TIMESTAMP NOT NULL,
+    usado BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_codigos_verificacion PRIMARY KEY (id),
+    CONSTRAINT fk_codigos_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 3. Tabla de Clientes (Relación 1:1 con Usuarios - Especialización)
 CREATE TABLE clientes (
     id_usuario INT,
