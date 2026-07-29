@@ -19,7 +19,7 @@
         .leaflet-grab { cursor: crosshair !important; }
     </style>
     <!-- Hoja de estilos premium personalizada -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body class="dark-theme">
     
@@ -1118,19 +1118,31 @@
                             <div class="form-grid">
                                 <div class="input-group">
                                     <label>Cédula de Identidad</label>
-                                    <input type="text" id="prof-cedula" readonly disabled>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-id-card input-icon"></i>
+                                        <input type="text" id="prof-cedula" readonly disabled>
+                                    </div>
                                 </div>
                                 <div class="input-group">
                                     <label>Correo Electrónico</label>
-                                    <input type="email" id="prof-email" readonly disabled>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-envelope input-icon"></i>
+                                        <input type="email" id="prof-email" readonly disabled>
+                                    </div>
                                 </div>
                                 <div class="input-group">
                                     <label>Tipo de Usuario</label>
-                                    <input type="text" id="prof-tipo" readonly disabled style="text-transform: capitalize;">
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-user-tag input-icon"></i>
+                                        <input type="text" id="prof-tipo" readonly disabled style="text-transform: capitalize;">
+                                    </div>
                                 </div>
                                 <div class="input-group">
                                     <label>Fecha de Registro</label>
-                                    <input type="text" id="prof-fecha-registro" readonly disabled>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-calendar-days input-icon"></i>
+                                        <input type="text" id="prof-fecha-registro" readonly disabled>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1144,15 +1156,24 @@
                             <div class="form-grid">
                                 <div class="input-group">
                                     <label for="prof-nombre">Nombre</label>
-                                    <input type="text" id="prof-nombre" required>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-user input-icon"></i>
+                                        <input type="text" id="prof-nombre" required>
+                                    </div>
                                 </div>
                                 <div class="input-group">
                                     <label for="prof-apellido">Apellido</label>
-                                    <input type="text" id="prof-apellido" required>
+                                    <div class="input-wrapper">
+                                        <i class="fa-regular fa-user input-icon"></i>
+                                        <input type="text" id="prof-apellido" required>
+                                    </div>
                                 </div>
                                 <div class="input-group col-span-2">
                                     <label for="prof-telefono">Teléfono de Contacto</label>
-                                    <input type="text" id="prof-telefono" required>
+                                    <div class="input-wrapper">
+                                        <i class="fa-solid fa-phone input-icon"></i>
+                                        <input type="text" id="prof-telefono" required>
+                                    </div>
                                 </div>
                             </div>
                         </div>

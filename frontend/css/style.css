@@ -372,6 +372,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
     border: 1px solid var(--border-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .btn-icon-only:hover {
     background: rgba(255, 255, 255, 0.1);
