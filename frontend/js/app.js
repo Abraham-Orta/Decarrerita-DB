@@ -1,5 +1,5 @@
 // URL base de la API
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 // Estado global de la aplicación
 let token = localStorage.getItem('token') || null;
@@ -96,6 +96,196 @@ async function apiRequest(endpoint, options = {}) {
         throw error;
     }
 }
+
+// =====================================================================
+// HELPER: Custom Premium Select (Glassmorphism)
+// =====================================================================
+function applyPremiumSelect(selectEl) {
+    if (selectEl.dataset.customized) return;
+    selectEl.dataset.customized = "true";
+    
+    // Quitar la clase select-wrapper del padre para eliminar la flecha antigua (::after)
+    if (selectEl.parentElement && selectEl.parentElement.classList.contains('select-wrapper')) {
+        selectEl.parentElement.classList.remove('select-wrapper');
+    }
+
+    // Ocultar el select original
+    selectEl.style.display = 'none';
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'premium-select-wrapper';
+    wrapper.style.position = 'relative';
+    wrapper.style.width = '100%';
+    
+    const display = document.createElement('div');
+    // Quitamos 'input-group' para evitar que herede flex-direction: column
+    display.className = 'premium-select-display';
+    display.style.cssText = `
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border-card);
+        color: var(--text-primary);
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        font-family: var(--font-family);
+        font-size: 0.95rem;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: var(--transition);
+        user-select: none;
+        height: 100%;
+        min-height: 46px;
+    `;
+    
+    const textSpan = document.createElement('span');
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    textSpan.textContent = selectedOption ? selectedOption.text : 'Seleccionar...';
+    
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-chevron-down';
+    icon.style.cssText = 'font-size: 0.8rem; color: var(--text-secondary); transition: transform 0.3s ease;';
+    
+    display.appendChild(textSpan);
+    display.appendChild(icon);
+    
+    const dropdown = document.createElement('div');
+    dropdown.className = 'premium-select-dropdown';
+    dropdown.style.cssText = `
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        width: 100%;
+        background: rgba(15, 15, 20, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+        z-index: 9999;
+        max-height: 250px;
+        overflow-y: auto;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        padding: 0.5rem;
+        scrollbar-width: thin;
+    `;
+    
+    function populateDropdown() {
+        dropdown.innerHTML = '';
+        Array.from(selectEl.options).forEach(opt => {
+            if(opt.style.display === 'none') return;
+            const item = document.createElement('div');
+            item.style.cssText = `
+                padding: 0.6rem 1rem;
+                cursor: pointer;
+                color: var(--text-primary);
+                border-radius: 8px;
+                transition: background 0.15s, transform 0.1s;
+                font-size: 0.9rem;
+                margin-bottom: 2px;
+            `;
+            item.textContent = opt.text;
+            
+            if (selectEl.value === opt.value) {
+                item.style.background = 'rgba(99, 102, 241, 0.2)';
+                item.style.color = 'var(--primary)';
+            }
+            
+            item.addEventListener('mouseenter', () => {
+                if(selectEl.value !== opt.value) item.style.background = 'rgba(255, 255, 255, 0.05)';
+            });
+            item.addEventListener('mouseleave', () => {
+                if(selectEl.value !== opt.value) item.style.background = 'transparent';
+            });
+            
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectEl.value = opt.value;
+                textSpan.textContent = opt.text;
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                closeDropdown();
+                populateDropdown();
+            });
+            dropdown.appendChild(item);
+        });
+    }
+    
+    populateDropdown();
+    
+    let isOpen = false;
+    function openDropdown() {
+        populateDropdown();
+        isOpen = true;
+        dropdown.style.opacity = '1';
+        dropdown.style.visibility = 'visible';
+        dropdown.style.transform = 'translateY(0)';
+        display.style.borderColor = 'var(--primary)';
+        display.style.boxShadow = '0 0 0 3px var(--primary-glow)';
+        icon.style.transform = 'rotate(180deg)';
+    }
+    
+    function closeDropdown() {
+        isOpen = false;
+        dropdown.style.opacity = '0';
+        dropdown.style.visibility = 'hidden';
+        dropdown.style.transform = 'translateY(-10px)';
+        display.style.borderColor = 'var(--border-card)';
+        display.style.boxShadow = 'none';
+        icon.style.transform = 'rotate(0deg)';
+    }
+    
+    display.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.premium-select-dropdown').forEach(d => {
+            if (d !== dropdown) {
+                d.style.opacity = '0';
+                d.style.visibility = 'hidden';
+            }
+        });
+        if (isOpen) closeDropdown();
+        else openDropdown();
+    });
+    
+    document.addEventListener('click', () => {
+        if (isOpen) closeDropdown();
+    });
+    
+    selectEl.addEventListener('change', () => {
+        const selOpt = selectEl.options[selectEl.selectedIndex];
+        textSpan.textContent = selOpt ? selOpt.text : 'Seleccionar...';
+    });
+
+    const observer = new MutationObserver(() => {
+        populateDropdown();
+        const selOpt = selectEl.options[selectEl.selectedIndex];
+        textSpan.textContent = selOpt ? selOpt.text : 'Seleccionar...';
+    });
+    observer.observe(selectEl, { childList: true });
+    
+    wrapper.appendChild(display);
+    wrapper.appendChild(dropdown);
+    selectEl.parentNode.insertBefore(wrapper, selectEl.nextSibling);
+}
+
+// Inicializar todos los selects apenas cargue el DOM y revisar si aparecen nuevos
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('select').forEach(applyPremiumSelect);
+    
+    // Observador global para los select que se creen dinámicamente
+    const bodyObserver = new MutationObserver((mutations) => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeName === 'SELECT') applyPremiumSelect(node);
+                else if (node.querySelectorAll) {
+                    node.querySelectorAll('select').forEach(applyPremiumSelect);
+                }
+            });
+        });
+    });
+    bodyObserver.observe(document.body, { childList: true, subtree: true });
+});
 
 // =====================================================================
 // NAVEGACIÓN Y CONTROL DE VISTAS (SPA)
@@ -674,12 +864,12 @@ async function loadClienteViajes() {
         viajes.forEach(v => {
             const fecha = new Date(v.fecha).toLocaleDateString('es-VE', { hour: '2-digit', minute: '2-digit' });
             const estadoBadge = v.estado === 'completado' 
-                ? '<span class="status-badge badge-success">Completado</span>'
-                : '<span class="status-badge badge-danger">Cancelado</span>';
+                ? '<span class="status-badge badge-success" style="font-size:0.7rem; padding:2px 6px;">Completado</span>'
+                : '<span class="status-badge badge-danger" style="font-size:0.7rem; padding:2px 6px;">Cancelado</span>';
                 
             tbody.innerHTML += `
                 <tr>
-                    <td>${fecha}</td>
+                    <td>${fecha}<br><div style="margin-top:4px">${estadoBadge}</div></td>
                     <td>
                         <div class="table-route-cell">
                             <span class="route-pt route-a"><i class="fa-solid fa-location-dot"></i> ${v.origen}</span>
@@ -687,7 +877,18 @@ async function loadClienteViajes() {
                         </div>
                     </td>
                     <td>${v.distancia_km} Km</td>
-                    <td class="font-bold">$${parseFloat(v.costo_total).toFixed(2)}</td>
+                    <td class="font-bold">
+                        $${parseFloat(v.costo_total).toFixed(2)}
+                        <br>
+                        <button class="btn btn-sm btn-secondary btn-view-receipt" style="margin-top: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.75rem;" 
+                            data-fecha="${fecha}" 
+                            data-chofer="${v.chofer_nombre} ${v.chofer_apellido}"
+                            data-vehiculo="${v.vehiculo_marca} ${v.vehiculo_modelo}"
+                            data-placa="${v.vehiculo_placa}"
+                            data-costo="${v.costo_total}">
+                            <i class="fa-solid fa-receipt"></i> Factura
+                        </button>
+                    </td>
                     <td>
                         <div>${v.chofer_nombre} ${v.chofer_apellido}</div>
                         <small class="text-secondary">${v.chofer_telefono}</small>
@@ -699,10 +900,49 @@ async function loadClienteViajes() {
                 </tr>
             `;
         });
+
+        // Asignar eventos a los botones de factura
+        document.querySelectorAll('.btn-view-receipt').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const b = e.currentTarget;
+                document.getElementById('receipt-date').textContent = b.dataset.fecha;
+                document.getElementById('receipt-driver-name').textContent = b.dataset.chofer;
+                document.getElementById('receipt-veh-model').textContent = b.dataset.vehiculo;
+                document.getElementById('receipt-veh-plate').textContent = b.dataset.placa;
+                document.getElementById('receipt-total').textContent = parseFloat(b.dataset.costo).toFixed(2);
+                document.getElementById('modal-receipt').classList.remove('hidden');
+            });
+        });
     } catch (err) {
         showToast('Error al cargar viajes.', 'error');
     }
 }
+
+// Cerrar modal factura (Delegación global)
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.btn-close-receipt') || e.target.closest('#btn-enviar-factura')) {
+        const modal = document.getElementById('modal-receipt');
+        if (modal) modal.classList.add('hidden');
+        
+        // Si venía del modal de éxito de viaje, abrir la factura
+        if (e.target.closest('#btn-enviar-factura')) {
+            const date = new Date().toLocaleDateString('es-VE');
+            const chName = document.getElementById('assigned-driver-name').textContent;
+            const vehModel = document.getElementById('assigned-veh-model').textContent;
+            const vehPlate = document.getElementById('assigned-veh-plate').textContent;
+            const costo = document.getElementById('assigned-ride-cost').textContent;
+            
+            document.getElementById('receipt-date').textContent = date;
+            document.getElementById('receipt-driver-name').textContent = chName;
+            document.getElementById('receipt-veh-model').textContent = vehModel;
+            document.getElementById('receipt-veh-plate').textContent = vehPlate;
+            document.getElementById('receipt-total').textContent = costo;
+            
+            document.getElementById('modal-ride-success').classList.add('hidden');
+            document.getElementById('modal-receipt').classList.remove('hidden');
+        }
+    }
+});
 
 // Control de Tabs en Panel de Cliente
 document.getElementById('tab-historial-viajes').addEventListener('click', (e) => {
@@ -1087,7 +1327,7 @@ async function loadAdminPendientesPago() {
 
         // Asignar eventos de click a botones de pago
         document.querySelectorAll('.btn-pagar-row').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const id = btn.getAttribute('data-id');
                 const nombre = btn.getAttribute('data-nombre');
                 const monto = btn.getAttribute('data-monto');
@@ -1095,11 +1335,11 @@ async function loadAdminPendientesPago() {
                 document.getElementById('pago-chofer-id').value = id;
                 document.getElementById('pago-chofer-nombre').textContent = nombre;
                 document.getElementById('pago-chofer-monto').textContent = parseFloat(monto).toFixed(2);
+                document.getElementById('pago-monto-input').value = parseFloat(monto).toFixed(2);
                 
                 // Setear fecha actual por defecto
                 document.getElementById('pago-fecha').value = new Date().toISOString().substring(0, 10);
                 
-<<<<<<< HEAD
                 // Cargar desglose de viajes pendientes del chofer en la tabla del modal
                 const tbodyViajes = document.getElementById('pago-chofer-viajes-tbody');
                 if (tbodyViajes) {
@@ -1130,8 +1370,6 @@ async function loadAdminPendientesPago() {
                     }
                 }
 
-=======
->>>>>>> 94fef74 (añadi un perfil para cada usuario)
                 document.getElementById('modal-pagar-chofer').classList.remove('hidden');
             });
         });
@@ -1141,7 +1379,6 @@ async function loadAdminPendientesPago() {
     }
 }
 
-<<<<<<< HEAD
 // Cargar y gestionar recargas de saldo de clientes (Panel Admin)
 async function loadAdminRecargas() {
     const filtro = document.getElementById('admin-recargas-filtro') ? document.getElementById('admin-recargas-filtro').value : 'pendiente';
@@ -1219,9 +1456,6 @@ async function loadAdminRecargas() {
         showToast('Error al cargar recargas administrativas.', 'error');
     }
 }
-
-=======
->>>>>>> 94fef74 (añadi un perfil para cada usuario)
 // Conmutar subformulario Evaluación
 document.getElementById('mini-tab-psicologia').addEventListener('click', () => {
     document.getElementById('mini-tab-psicologia').classList.add('active');
